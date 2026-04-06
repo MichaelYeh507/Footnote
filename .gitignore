@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.local
+*.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
