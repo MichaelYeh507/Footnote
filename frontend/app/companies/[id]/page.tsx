@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCompany } from "../../lib/api";
 import { DeleteCompanyButton } from "../../components/DeleteCompanyButton";
+import { FinancialsChart } from "../../components/FinancialsChart";
 
 export default async function CompanyDetailPage({
   params,
@@ -19,10 +20,15 @@ export default async function CompanyDetailPage({
 
   if (!detail?.company) notFound();
 
-  const { company, financials, risks, management, valuations } = detail;
+  const { company, financials, risks, management, valuations, investment_thesis } = detail;
   const sortedFinancials = [...financials].sort((a, b) =>
     a.fiscal_year.localeCompare(b.fiscal_year),
   );
+
+  const upside =
+    company.price_target != null && company.current_price != null && company.current_price > 0
+      ? ((company.price_target - company.current_price) / company.current_price) * 100
+      : null;
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -42,8 +48,9 @@ export default async function CompanyDetailPage({
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-        {/* Company Header */}
+        {/* Hero */}
         <div className="mb-8 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          {/* Top row: name + rating badge */}
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -57,56 +64,87 @@ export default async function CompanyDetailPage({
                 {company.headquarters && <span>· {company.headquarters}</span>}
               </div>
             </div>
-            {company.rating && (
-              <span
-                className={`rounded-md px-3 py-1 text-sm font-semibold ${
-                  company.rating === "BUY" || company.rating === "OVERWEIGHT"
-                    ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
-                    : company.rating === "SELL" ||
-                        company.rating === "UNDERWEIGHT"
-                      ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                      : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
-                }`}
-              >
-                {company.rating}
-              </span>
-            )}
+            {company.rating && <RatingBadge rating={company.rating} />}
           </div>
 
+          {/* Price row */}
+          {(company.current_price != null || company.price_target != null) && (
+            <div className="mb-4 flex flex-wrap items-end gap-6 border-b border-zinc-200 pb-4 dark:border-zinc-800">
+              {company.current_price != null && (
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Current Price
+                  </div>
+                  <div className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+                    ${company.current_price.toFixed(2)}
+                  </div>
+                </div>
+              )}
+              {company.price_target != null && (
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Price Target
+                  </div>
+                  <div className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+                    ${company.price_target.toFixed(2)}
+                  </div>
+                </div>
+              )}
+              {upside != null && (
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    Upside
+                  </div>
+                  <div
+                    className={`text-2xl font-semibold ${
+                      upside >= 0
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {upside >= 0 ? "+" : ""}
+                    {upside.toFixed(1)}%
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Description */}
           {company.description && (
             <p className="mb-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               {company.description}
             </p>
           )}
 
+          {/* Stats grid */}
           <div className="grid grid-cols-2 gap-4 border-t border-zinc-200 pt-4 text-sm md:grid-cols-4 dark:border-zinc-800">
             <Stat label="CEO" value={company.ceo} />
             <Stat label="Founded" value={company.founded} />
             <Stat label="Employees" value={company.employees} />
             <Stat label="Market Cap" value={company.market_cap} />
             <Stat label="Enterprise Value" value={company.enterprise_value} />
-            <Stat
-              label="Current Price"
-              value={
-                company.current_price != null
-                  ? `$${company.current_price}`
-                  : null
-              }
-            />
-            <Stat
-              label="Price Target"
-              value={
-                company.price_target != null
-                  ? `$${company.price_target}`
-                  : null
-              }
-            />
           </div>
         </div>
 
-        {/* Financials */}
+        {/* Investment Thesis */}
+        {investment_thesis && (
+          <div className="mb-8 rounded-xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-900 dark:bg-blue-950/40">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+              Investment Thesis
+            </h2>
+            <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100">
+              {investment_thesis}
+            </p>
+          </div>
+        )}
+
+        {/* Financials Chart + Table */}
         {sortedFinancials.length > 0 && (
           <Section title="Financials">
+            <div className="mb-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <FinancialsChart financials={sortedFinancials} />
+            </div>
             <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
               <table className="w-full text-sm">
                 <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
@@ -266,6 +304,42 @@ export default async function CompanyDetailPage({
           </Section>
         )}
       </main>
+    </div>
+  );
+}
+
+function RatingBadge({ rating }: { rating: string }) {
+  const isPositive = ["BUY", "OVERWEIGHT", "STRONG BUY", "OUTPERFORM"].includes(
+    rating.toUpperCase(),
+  );
+  const isNegative = ["SELL", "UNDERWEIGHT", "UNDERPERFORM"].includes(
+    rating.toUpperCase(),
+  );
+
+  return (
+    <div
+      className={`flex flex-col items-center rounded-lg px-5 py-3 ${
+        isPositive
+          ? "bg-green-100 dark:bg-green-950"
+          : isNegative
+            ? "bg-red-100 dark:bg-red-950"
+            : "bg-zinc-100 dark:bg-zinc-800"
+      }`}
+    >
+      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Rating
+      </span>
+      <span
+        className={`text-lg font-bold ${
+          isPositive
+            ? "text-green-700 dark:text-green-300"
+            : isNegative
+              ? "text-red-700 dark:text-red-300"
+              : "text-zinc-700 dark:text-zinc-300"
+        }`}
+      >
+        {rating}
+      </span>
     </div>
   );
 }

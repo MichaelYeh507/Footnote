@@ -72,6 +72,7 @@ export type CompanyDetail = {
   risks: RiskFactor[];
   management: ManagementMember[];
   valuations: Valuation[];
+  investment_thesis: string | null;
 };
 
 export type Report = {

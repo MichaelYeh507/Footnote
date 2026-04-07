@@ -149,10 +149,21 @@ def get_company_detail(company_id: str):
     risks = supabase.table("risks").select("*").eq("company_id", company_id).execute().data
     management = supabase.table("management").select("*").eq("company_id", company_id).execute().data
     valuations = supabase.table("valuations").select("*").eq("company_id", company_id).execute().data
+
+    # Pull investment_thesis from the report's structured_json
+    investment_thesis = None
+    if company:
+        report_id = company[0].get("report_id")
+        if report_id:
+            report = supabase.table("reports").select("structured_json").eq("id", report_id).execute().data
+            if report and report[0].get("structured_json"):
+                investment_thesis = report[0]["structured_json"].get("investment_thesis")
+
     return {
         "company": company[0] if company else None,
         "financials": financials,
         "risks": risks,
         "management": management,
         "valuations": valuations,
+        "investment_thesis": investment_thesis,
     }
