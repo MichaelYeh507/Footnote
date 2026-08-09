@@ -1,4 +1,4 @@
-# Knollwood-pipeline-prototype
+# RAG-pipeline-prototype
 
 PIPELINE 
 
