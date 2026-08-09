@@ -1,16 +1,23 @@
-"""End-to-end PDF processing pipeline with per-stage error handling."""
+"""End-to-end document processing pipeline with per-stage error handling."""
 
 import json
 import logging
+import os
 
 from pydantic import ValidationError
 
 from models.schemas import StructuredReport
+from services.html_parser import extract_text_from_html
 from services.openai_structurer import structure_text
 from services.pdf_parser import extract_text_from_pdf
 from services.supabase_client import mark_report_failed, save_structured_data
 
 logger = logging.getLogger(__name__)
+
+# The upload route validates against this same tuple. Kept here, next to the
+# dispatch that consumes it, because two hand-maintained lists drift and the
+# symptom is a file accepted at the route and failed in the background.
+SUPPORTED_EXTENSIONS = (".pdf", ".htm", ".html")
 
 
 class PipelineError(Exception):
@@ -22,7 +29,7 @@ class PipelineError(Exception):
         self.message = message
 
 
-def process_report(report_id: str, file_bytes: bytes) -> None:
+def process_report(report_id: str, filename: str, file_bytes: bytes) -> None:
     """Run the full pipeline for an already-created report row.
 
     On failure, updates the report row with status=failed and an error_message
@@ -30,7 +37,7 @@ def process_report(report_id: str, file_bytes: bytes) -> None:
     where the caller has already returned a response.
     """
     try:
-        raw_text = _extract(file_bytes)
+        raw_text = _extract(filename, file_bytes)
         structured = _structure(raw_text)
         save_structured_data(report_id, raw_text, structured)
     except PipelineError as e:
@@ -41,16 +48,39 @@ def process_report(report_id: str, file_bytes: bytes) -> None:
         mark_report_failed(report_id, f"[unexpected] {type(e).__name__}: {e}")
 
 
-def _extract(file_bytes: bytes) -> str:
-    try:
-        text = extract_text_from_pdf(file_bytes)
-    except Exception as e:
-        raise PipelineError("pdf_parse", f"{type(e).__name__}: {e}") from e
-    if not text.strip():
+def _extract(filename: str, file_bytes: bytes) -> str:
+    """Dispatch to a parser by file extension.
+
+    Extension, not content type: browsers, curl, and the EDGAR archive disagree
+    about the MIME type for .htm, and the extension is the one signal that
+    survives an upload intact.
+    """
+    extension = os.path.splitext(filename or "")[1].lower()
+
+    if extension == ".pdf":
+        parser = extract_text_from_pdf
+    elif extension in (".htm", ".html"):
+        parser = extract_text_from_html
+    else:
         raise PipelineError(
-            "pdf_parse",
-            "No text found in PDF. Scanned/image-only PDFs need OCR.",
+            "parse",
+            f"Unsupported file type {extension or '(none)'!r}. "
+            f"Accepted: {', '.join(SUPPORTED_EXTENSIONS)}",
         )
+
+    try:
+        text = parser(file_bytes)
+    except Exception as e:
+        raise PipelineError("parse", f"{type(e).__name__}: {e}") from e
+
+    if not text.strip():
+        hint = (
+            "Scanned/image-only PDFs need OCR."
+            if extension == ".pdf"
+            else "The document may be a frameset or an EDGAR index page rather "
+            "than the filing itself."
+        )
+        raise PipelineError("parse", f"No text found in {extension} document. {hint}")
     return text
 
 

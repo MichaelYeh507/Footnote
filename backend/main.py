@@ -1,7 +1,7 @@
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.pipeline import process_report
+from services.pipeline import SUPPORTED_EXTENSIONS, process_report
 from services.supabase_client import (
     create_report,
     delete_extraction,
@@ -24,20 +24,27 @@ app.add_middleware(
 
 
 @app.post("/api/upload")
-async def upload_pdf(
+async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ):
-    """Queue a PDF for processing. Returns immediately with a report_id to poll."""
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(400, "Only PDF files are accepted")
+    """Queue a filing for processing. Returns immediately with a report_id to poll.
+
+    Validation is on the extension rather than the content type, matching how the
+    pipeline dispatches: EDGAR primary documents are HTML, and clients disagree
+    about what MIME type to send for them.
+    """
+    if not file.filename or not file.filename.lower().endswith(SUPPORTED_EXTENSIONS):
+        raise HTTPException(
+            400, f"Unsupported file type. Accepted: {', '.join(SUPPORTED_EXTENSIONS)}"
+        )
 
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(400, "Uploaded file is empty")
 
     report = create_report(file.filename)
-    background_tasks.add_task(process_report, report["id"], file_bytes)
+    background_tasks.add_task(process_report, report["id"], file.filename, file_bytes)
 
     return {"status": "processing", "report_id": report["id"]}
 

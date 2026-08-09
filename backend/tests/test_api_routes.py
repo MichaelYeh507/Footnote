@@ -80,32 +80,75 @@ def test_list_reports_passes_limit_through(app_client, monkeypatch):
     assert seen["limit"] == 7
 
 
-def test_upload_rejects_non_pdf(app_client):
+@pytest.fixture
+def queued(monkeypatch):
+    """Capture what the route hands to the background task."""
+    calls = []
+    monkeypatch.setattr(main, "create_report", lambda name: {"id": "report-1"})
+    monkeypatch.setattr(main, "process_report", lambda *a: calls.append(a))
+    return calls
+
+
+def test_upload_rejects_unsupported_format(app_client):
     response = app_client.post(
         "/api/upload", files={"file": ("notes.txt", io.BytesIO(b"hello"), "text/plain")}
     )
     assert response.status_code == 400
-    assert "PDF" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert ".htm" in detail and ".pdf" in detail, "the error must name what IS accepted"
+
+
+@pytest.mark.parametrize(
+    "filename,payload,content_type",
+    [
+        ("aapl-20250927.htm", b"<html><p>Item 1.</p></html>", "text/html"),
+        ("filing.html", b"<html><p>Item 1.</p></html>", "text/html"),
+        ("filing.pdf", b"%PDF-1.4 fake", "application/pdf"),
+    ],
+)
+def test_upload_accepts_supported_formats(app_client, queued, filename, payload, content_type):
+    """EDGAR serves 10-Ks as HTML; PDF stays for the retained synthetic corpus."""
+    response = app_client.post(
+        "/api/upload", files={"file": (filename, io.BytesIO(payload), content_type)}
+    )
+    assert response.status_code == 200
+    assert len(queued) == 1
+
+
+def test_upload_trusts_the_extension_not_the_content_type(app_client, queued):
+    """Browsers and curl disagree on the MIME type for .htm; the extension is
+    what the pipeline dispatches on, so it must be what the route validates."""
+    response = app_client.post(
+        "/api/upload",
+        files={"file": ("filing.htm", io.BytesIO(b"<p>x</p>"), "application/octet-stream")},
+    )
+    assert response.status_code == 200
 
 
 def test_upload_rejects_empty_file(app_client):
     response = app_client.post(
-        "/api/upload", files={"file": ("empty.pdf", io.BytesIO(b""), "application/pdf")}
+        "/api/upload", files={"file": ("empty.htm", io.BytesIO(b""), "text/html")}
     )
     assert response.status_code == 400
 
 
-def test_upload_queues_background_work(app_client, monkeypatch):
+def test_upload_queues_background_work(app_client, queued):
     """The route must return immediately with an id to poll, not block on the
     OpenAI call."""
-    calls = []
-    monkeypatch.setattr(main, "create_report", lambda name: {"id": "report-1"})
-    monkeypatch.setattr(main, "process_report", lambda *a: calls.append(a))
-
     response = app_client.post(
         "/api/upload",
-        files={"file": ("filing.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+        files={"file": ("filing.htm", io.BytesIO(b"<p>x</p>"), "text/html")},
     )
     assert response.status_code == 200
     assert response.json() == {"status": "processing", "report_id": "report-1"}
-    assert len(calls) == 1
+    assert len(queued) == 1
+
+
+def test_upload_passes_filename_to_the_pipeline(app_client, queued):
+    """Dispatch happens by extension inside the pipeline, so the filename has to
+    survive the handoff. Losing it silently routes every upload to one parser."""
+    app_client.post(
+        "/api/upload",
+        files={"file": ("aapl-20250927.htm", io.BytesIO(b"<p>x</p>"), "text/html")},
+    )
+    assert "aapl-20250927.htm" in queued[0]
