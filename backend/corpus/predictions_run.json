@@ -1,0 +1,22 @@
+{
+  "generated_by": "backend/scripts/run_extraction.py",
+  "model": "gpt-4o-mini",
+  "temperature": 0.0,
+  "prompt_sha256": "afb6602be0d70c55304c214ac60e24f81359c365e7e01848eccd7d5796941758",
+  "fields": [
+    "company_name",
+    "ticker",
+    "fiscal_year_end",
+    "employees",
+    "total_assets",
+    "revenue_most_recent_fy",
+    "ceo_name",
+    "dividends_declared_per_share",
+    "goodwill_impairment"
+  ],
+  "filings_selected": 39,
+  "filings_succeeded": 39,
+  "filings_failed": [],
+  "instances": 351,
+  "mechanical_success": true
+}
