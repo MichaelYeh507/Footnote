@@ -1,8 +1,19 @@
 """Structured extraction from 10-K text via the OpenAI chat API.
 
-PROMPT STATUS: draft, not frozen. Freeze before labeling begins and record the
-date here. Editing the prompt after eval results exist is p-hacking; editing it
-before any ground truth exists is fixing a bug. Only the second is legitimate.
+PROMPT STATUS: FROZEN 2026-08-09, immediately before the extraction run that
+produced corpus/predictions.jsonl.
+
+Frozen at extraction rather than at labeling, which is what the earlier note
+here said. Labeling is the wrong trigger: the predictions are made at extraction
+time, so a prompt edited after the run leaves a predictions file that no longer
+comes from the prompt in the tree, with nothing to reveal the mismatch. The run
+records sha256 of (prompt, model, temperature) in corpus/predictions_run.json,
+so the two can be checked against each other.
+
+Editing this prompt from here on invalidates every prediction and requires
+deleting predictions.jsonl and re-running. Editing it after eval results exist
+is p-hacking; editing it before any ground truth existed was fixing a bug. Only
+the second was legitimate, and that window is now closed.
 
 The field notes below were calibrated against 8 filings from 8 sectors on
 2026-08-09 (Apple, Costco, Chipotle, JPMorgan, Johnson & Johnson, Exxon Mobil,

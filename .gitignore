@@ -38,6 +38,10 @@ backend/corpus/filings/
 # Dev-set filings for the stability check, re-fetchable via
 # scripts/fetch_calibration_filings.py.
 backend/corpus/calibration/
+# Model output for the eval corpus. Gitignored because it must not be read
+# before labeling is complete, and because it is derived from the filings.
+backend/corpus/predictions.jsonl
+backend/corpus/labels.jsonl
 backend/corpus/*.txt
 backend/corpus/*.htm
 backend/corpus/*.html
