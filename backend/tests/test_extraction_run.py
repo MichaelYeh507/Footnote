@@ -151,13 +151,26 @@ def test_progress_line_still_reports_enough_to_diagnose():
     assert "AAA" in line and "0000-1" in line
 
 
-def test_progress_line_reports_field_counts_not_field_contents():
-    """How many fields came back null is mechanical, and safe. Which values
-    they were is not."""
-    partial = {"total_assets": 987654.321}
-    line = progress_line(filing(), "ok", extracted=partial)
-    assert "987654" not in line
-    assert "1/9" in line, "should report how many of nine fields came back populated"
+def test_progress_line_does_not_report_how_many_fields_were_populated():
+    """The populated count is not mechanical once aggregated.
+
+    Per filing "1/9 populated" looks harmless. Across 39 filings the aggregate
+    IS the abstention rate -- a reported result, and the one that anchors the
+    value/stated_none/not_addressed decision on the two fields the plan expects
+    to be frequently absent. An earlier version of this run printed it.
+    """
+    one = progress_line(filing(), "ok", extracted={"total_assets": 987654.321})
+    nine = progress_line(filing(), "ok", extracted=SENTINELS)
+    assert one == nine, "output must not vary with how much was extracted"
+    for count in ("1/9", "9/9", "1 of 9", "populated"):
+        assert count not in one
+
+
+def test_progress_line_is_identical_whether_or_not_extraction_happened():
+    """The strongest form of the contract: the line is a function of the filing
+    and the status, and of nothing the model returned."""
+    assert (progress_line(filing(), "ok", extracted=SENTINELS)
+            == progress_line(filing(), "ok", extracted=None))
 
 
 # --- resume ----------------------------------------------------------------

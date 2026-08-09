@@ -103,24 +103,27 @@ def completed_accessions(lines) -> set[str]:
 
 def progress_line(filing: dict, status: str, extracted: dict | None = None,
                   detail: str = "") -> str:
-    """One console line per filing. Never contains an extracted value.
+    """One console line per filing. Carries no information about the extraction
+    beyond whether the call mechanically succeeded.
 
-    `extracted` is accepted only so the count of populated fields can be
-    reported -- how many of nine came back non-null is mechanical information
-    and says nothing about what any of them was. The dict is deliberately
-    never indexed by name here, and no value from it reaches the string.
+    An earlier version reported "N/9 populated". Per filing that looks
+    mechanical. Across a 39-filing run it is not: the aggregate is the model's
+    abstention rate, which is one of the reported results and which bears
+    directly on the two fields -- dividends_declared_per_share and
+    goodwill_impairment -- that the plan expects to be absent from many filings.
+    A labeler who knows the model always returned a number is anchored on
+    exactly the value/stated_none/not_addressed call that matters most.
+
+    So `extracted` is now accepted and deliberately ignored. It stays in the
+    signature because the caller has it, and a future edit that starts using it
+    should have to fail a test rather than merely be noticed in review.
     """
-    populated = (
-        sum(1 for field in EVAL_FIELDS if extracted.get(field) is not None)
-        if extracted is not None else 0
-    )
-    fields = f"{populated}/{len(EVAL_FIELDS)} populated" if extracted is not None else ""
+    del extracted  # never rendered; see docstring
     return "  ".join(part for part in (
         f"{filing['ticker']:<6}",
         f"{filing['period']}",
         f"{filing['accession']}",
         f"{status.upper():<8}",
-        fields,
         detail,
     ) if part)
 
