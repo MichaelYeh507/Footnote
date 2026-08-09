@@ -36,6 +36,15 @@ load_dotenv()
 
 MODEL = "gpt-4o-mini"
 
+# Measured 2026-08-09 (scripts/check_extraction_stability.py, corpus/stability.json):
+# 12 runs over 2 calibration filings at temperature 0.1 and 0.0 produced no
+# disagreement on any of the nine eval fields. Set to 0 regardless -- it costs
+# nothing and removes a source of variance in principle. Note this is NOT a
+# determinism guarantee: n=2 filings is weak evidence and the API does not
+# promise identical output at 0. It means run-to-run noise does not have to be
+# characterized and propagated through the intervals as a first-order concern.
+TEMPERATURE = 0.0
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Absence handling is load-bearing: dividends_declared_per_share and
@@ -179,7 +188,7 @@ def structure_text(raw_text: str) -> dict:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Extract structured data from this document:\n\n{raw_text}"},
         ],
-        temperature=0.1,
+        temperature=TEMPERATURE,
     )
     result = response.choices[0].message.content
     return json.loads(result)

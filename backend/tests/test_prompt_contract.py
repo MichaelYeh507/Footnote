@@ -17,7 +17,7 @@ import json
 import re
 
 from models.schemas import StructuredReport
-from services.openai_structurer import MODEL, SYSTEM_PROMPT
+from services.openai_structurer import MODEL, SYSTEM_PROMPT, TEMPERATURE
 
 EVAL_FIELDS = (
     "company_name",
@@ -119,3 +119,10 @@ def test_model_is_recorded_alongside_the_prompt():
     """Results are only reproducible against a named model. The resume claimed
     GPT-4o; the pipeline runs mini."""
     assert MODEL == "gpt-4o-mini"
+
+
+def test_sampling_is_pinned_to_zero():
+    """The extractor is a measurement instrument. Sampling temperature is a free
+    parameter that changes results without changing code, so it is pinned and
+    asserted. Stability was measured before pinning -- see corpus/stability.json."""
+    assert TEMPERATURE == 0.0

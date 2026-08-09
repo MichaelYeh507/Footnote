@@ -1,0 +1,608 @@
+{
+  "generated_by": "backend/scripts/select_issuers.py",
+  "rule": "HYBRID-RETRIEVAL-SEC-PLAN.md \u00a72, pre-registered 2026-08-09",
+  "seed": 20260809,
+  "universe": {
+    "source": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+    "fetched": "2026-08-08",
+    "count": 503
+  },
+  "parameters": {
+    "per_sector": 2,
+    "sectors": 11,
+    "issuers_wanted": 22,
+    "filings_per_issuer": 2,
+    "max_candidates": 400
+  },
+  "excluded_calibration_ciks": [
+    18230,
+    19617,
+    34088,
+    200406,
+    320193,
+    753308,
+    909832,
+    1058090
+  ],
+  "excluded_calibration_tickers": [],
+  "candidates_examined": 23,
+  "rejected_ineligible": [
+    "PSKY"
+  ],
+  "issuer_count": 22,
+  "filing_count": 44,
+  "issuers": [
+    {
+      "cik": 277135,
+      "ticker": "GWW",
+      "name": "W.W. GRAINGER, INC.",
+      "sector": "Industrials",
+      "sic": "5000",
+      "sic_description": "Wholesale-Durable Goods",
+      "filings": [
+        {
+          "accession": "0000277135-26-000011",
+          "filed": "2026-02-19",
+          "period": "2025-12-31",
+          "primary_document": "gww-20251231.htm",
+          "submission_bytes": 14291597,
+          "url": "https://www.sec.gov/Archives/edgar/data/277135/000027713526000011/gww-20251231.htm"
+        },
+        {
+          "accession": "0000277135-25-000010",
+          "filed": "2025-02-20",
+          "period": "2024-12-31",
+          "primary_document": "gww-20241231.htm",
+          "submission_bytes": 10733775,
+          "url": "https://www.sec.gov/Archives/edgar/data/277135/000027713525000010/gww-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 804328,
+      "ticker": "QCOM",
+      "name": "QUALCOMM INC/DE",
+      "sector": "Information Technology",
+      "sic": "3663",
+      "sic_description": "Radio & Tv Broadcasting & Communications Equipment",
+      "filings": [
+        {
+          "accession": "0000804328-25-000085",
+          "filed": "2025-11-05",
+          "period": "2025-09-28",
+          "primary_document": "qcom-20250928.htm",
+          "submission_bytes": 11040228,
+          "url": "https://www.sec.gov/Archives/edgar/data/804328/000080432825000085/qcom-20250928.htm"
+        },
+        {
+          "accession": "0000804328-24-000075",
+          "filed": "2024-11-06",
+          "period": "2024-09-29",
+          "primary_document": "qcom-20240929.htm",
+          "submission_bytes": 11012594,
+          "url": "https://www.sec.gov/Archives/edgar/data/804328/000080432824000075/qcom-20240929.htm"
+        }
+      ]
+    },
+    {
+      "cik": 59478,
+      "ticker": "LLY",
+      "name": "ELI LILLY & Co",
+      "sector": "Health Care",
+      "sic": "2834",
+      "sic_description": "Pharmaceutical Preparations",
+      "filings": [
+        {
+          "accession": "0000059478-26-000013",
+          "filed": "2026-02-12",
+          "period": "2025-12-31",
+          "primary_document": "lly-20251231.htm",
+          "submission_bytes": 14222091,
+          "url": "https://www.sec.gov/Archives/edgar/data/59478/000005947826000013/lly-20251231.htm"
+        },
+        {
+          "accession": "0000059478-25-000067",
+          "filed": "2025-02-19",
+          "period": "2024-12-31",
+          "primary_document": "lly-20241231.htm",
+          "submission_bytes": 18893888,
+          "url": "https://www.sec.gov/Archives/edgar/data/59478/000005947825000067/lly-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 80661,
+      "ticker": "PGR",
+      "name": "PROGRESSIVE CORP/OH/",
+      "sector": "Financials",
+      "sic": "6331",
+      "sic_description": "Fire, Marine & Casualty Insurance",
+      "filings": [
+        {
+          "accession": "0000080661-26-000086",
+          "filed": "2026-03-02",
+          "period": "2025-12-31",
+          "primary_document": "pgr-20251231.htm",
+          "submission_bytes": 23023219,
+          "url": "https://www.sec.gov/Archives/edgar/data/80661/000008066126000086/pgr-20251231.htm"
+        },
+        {
+          "accession": "0000080661-25-000007",
+          "filed": "2025-03-03",
+          "period": "2024-12-31",
+          "primary_document": "pgr-20241231.htm",
+          "submission_bytes": 23875831,
+          "url": "https://www.sec.gov/Archives/edgar/data/80661/000008066125000007/pgr-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1058290,
+      "ticker": "CTSH",
+      "name": "COGNIZANT TECHNOLOGY SOLUTIONS CORP",
+      "sector": "Information Technology",
+      "sic": "7371",
+      "sic_description": "Services-Computer Programming Services",
+      "filings": [
+        {
+          "accession": "0001058290-26-000008",
+          "filed": "2026-02-12",
+          "period": "2025-12-31",
+          "primary_document": "ctsh-20251231.htm",
+          "submission_bytes": 15553045,
+          "url": "https://www.sec.gov/Archives/edgar/data/1058290/000105829026000008/ctsh-20251231.htm"
+        },
+        {
+          "accession": "0001058290-25-000017",
+          "filed": "2025-02-12",
+          "period": "2024-12-31",
+          "primary_document": "ctsh-20241231.htm",
+          "submission_bytes": 22258698,
+          "url": "https://www.sec.gov/Archives/edgar/data/1058290/000105829025000017/ctsh-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1174922,
+      "ticker": "WYNN",
+      "name": "WYNN RESORTS LTD",
+      "sector": "Consumer Discretionary",
+      "sic": "7011",
+      "sic_description": "Hotels & Motels",
+      "filings": [
+        {
+          "accession": "0001174922-26-000013",
+          "filed": "2026-03-02",
+          "period": "2025-12-31",
+          "primary_document": "wynn-20251231.htm",
+          "submission_bytes": 17731988,
+          "url": "https://www.sec.gov/Archives/edgar/data/1174922/000117492226000013/wynn-20251231.htm"
+        },
+        {
+          "accession": "0001174922-25-000039",
+          "filed": "2025-02-13",
+          "period": "2024-12-31",
+          "primary_document": "wynn-20241231.htm",
+          "submission_bytes": 19817824,
+          "url": "https://www.sec.gov/Archives/edgar/data/1174922/000117492225000039/wynn-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1286681,
+      "ticker": "DPZ",
+      "name": "DOMINOS PIZZA INC",
+      "sector": "Consumer Discretionary",
+      "sic": "5140",
+      "sic_description": "Wholesale-Groceries & Related Products",
+      "filings": [
+        {
+          "accession": "0001193125-26-062321",
+          "filed": "2026-02-23",
+          "period": "2025-12-28",
+          "primary_document": "dpz-20251228.htm",
+          "submission_bytes": 20711733,
+          "url": "https://www.sec.gov/Archives/edgar/data/1286681/000119312526062321/dpz-20251228.htm"
+        },
+        {
+          "accession": "0000950170-25-025223",
+          "filed": "2025-02-24",
+          "period": "2024-12-29",
+          "primary_document": "dpz-20241229.htm",
+          "submission_bytes": 19649998,
+          "url": "https://www.sec.gov/Archives/edgar/data/1286681/000095017025025223/dpz-20241229.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1751788,
+      "ticker": "DOW",
+      "name": "DOW INC.",
+      "sector": "Materials",
+      "sic": "2821",
+      "sic_description": "Plastic Materials, Synth Resins & Nonvulcan Elastomers",
+      "filings": [
+        {
+          "accession": "0001751788-26-000018",
+          "filed": "2026-02-03",
+          "period": "2025-12-31",
+          "primary_document": "dow-20251231.htm",
+          "submission_bytes": 31466642,
+          "url": "https://www.sec.gov/Archives/edgar/data/1751788/000175178826000018/dow-20251231.htm"
+        },
+        {
+          "accession": "0001751788-25-000012",
+          "filed": "2025-02-04",
+          "period": "2024-12-31",
+          "primary_document": "dow-20241231.htm",
+          "submission_bytes": 29709473,
+          "url": "https://www.sec.gov/Archives/edgar/data/1751788/000175178825000012/dow-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1022079,
+      "ticker": "DGX",
+      "name": "QUEST DIAGNOSTICS INC",
+      "sector": "Health Care",
+      "sic": "8071",
+      "sic_description": "Services-Medical Laboratories",
+      "filings": [
+        {
+          "accession": "0001022079-26-000015",
+          "filed": "2026-02-26",
+          "period": "2025-12-31",
+          "primary_document": "dgx-20251231.htm",
+          "submission_bytes": 117045779,
+          "url": "https://www.sec.gov/Archives/edgar/data/1022079/000102207926000015/dgx-20251231.htm"
+        },
+        {
+          "accession": "0001022079-25-000044",
+          "filed": "2025-02-20",
+          "period": "2024-12-31",
+          "primary_document": "dgx-20241231.htm",
+          "submission_bytes": 116667908,
+          "url": "https://www.sec.gov/Archives/edgar/data/1022079/000102207925000044/dgx-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 773840,
+      "ticker": "HON",
+      "name": "HONEYWELL INTERNATIONAL INC",
+      "sector": "Industrials",
+      "sic": "3724",
+      "sic_description": "Aircraft Engines & Engine Parts",
+      "filings": [
+        {
+          "accession": "0000773840-26-000013",
+          "filed": "2026-02-17",
+          "period": "2025-12-31",
+          "primary_document": "hon-20251231.htm",
+          "submission_bytes": 82631673,
+          "url": "https://www.sec.gov/Archives/edgar/data/773840/000077384026000013/hon-20251231.htm"
+        },
+        {
+          "accession": "0000773840-25-000010",
+          "filed": "2025-02-14",
+          "period": "2024-12-31",
+          "primary_document": "hon-20241231.htm",
+          "submission_bytes": 53710494,
+          "url": "https://www.sec.gov/Archives/edgar/data/773840/000077384025000010/hon-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1141391,
+      "ticker": "MA",
+      "name": "Mastercard Inc",
+      "sector": "Financials",
+      "sic": "7389",
+      "sic_description": "Services-Business Services, NEC",
+      "filings": [
+        {
+          "accession": "0001141391-26-000013",
+          "filed": "2026-02-11",
+          "period": "2025-12-31",
+          "primary_document": "ma-20251231.htm",
+          "submission_bytes": 19672075,
+          "url": "https://www.sec.gov/Archives/edgar/data/1141391/000114139126000013/ma-20251231.htm"
+        },
+        {
+          "accession": "0001141391-25-000011",
+          "filed": "2025-02-12",
+          "period": "2024-12-31",
+          "primary_document": "ma-20241231.htm",
+          "submission_bytes": 18332986,
+          "url": "https://www.sec.gov/Archives/edgar/data/1141391/000114139125000011/ma-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1748790,
+      "ticker": "AMCR",
+      "name": "Amcor plc",
+      "sector": "Materials",
+      "sic": "3990",
+      "sic_description": "Miscellaneous Manufacturing Industries",
+      "filings": [
+        {
+          "accession": "0001748790-25-000023",
+          "filed": "2025-08-15",
+          "period": "2025-06-30",
+          "primary_document": "amcr-20250630.htm",
+          "submission_bytes": 22593480,
+          "url": "https://www.sec.gov/Archives/edgar/data/1748790/000174879025000023/amcr-20250630.htm"
+        },
+        {
+          "accession": "0001748790-24-000022",
+          "filed": "2024-08-16",
+          "period": "2024-06-30",
+          "primary_document": "amcr-20240630.htm",
+          "submission_bytes": 20988466,
+          "url": "https://www.sec.gov/Archives/edgar/data/1748790/000174879024000022/amcr-20240630.htm"
+        }
+      ]
+    },
+    {
+      "cik": 92122,
+      "ticker": "SO",
+      "name": "SOUTHERN CO",
+      "sector": "Utilities",
+      "sic": "4911",
+      "sic_description": "Electric Services",
+      "filings": [
+        {
+          "accession": "0000092122-26-000006",
+          "filed": "2026-02-19",
+          "period": "2025-12-31",
+          "primary_document": "so-20251231.htm",
+          "submission_bytes": 76214948,
+          "url": "https://www.sec.gov/Archives/edgar/data/92122/000009212226000006/so-20251231.htm"
+        },
+        {
+          "accession": "0000092122-25-000018",
+          "filed": "2025-02-20",
+          "period": "2024-12-31",
+          "primary_document": "so-20241231.htm",
+          "submission_bytes": 74396305,
+          "url": "https://www.sec.gov/Archives/edgar/data/92122/000009212225000018/so-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1289490,
+      "ticker": "EXR",
+      "name": "Extra Space Storage Inc.",
+      "sector": "Real Estate",
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "filings": [
+        {
+          "accession": "0001289490-26-000011",
+          "filed": "2026-02-20",
+          "period": "2025-12-31",
+          "primary_document": "exr-20251231.htm",
+          "submission_bytes": 15452433,
+          "url": "https://www.sec.gov/Archives/edgar/data/1289490/000128949026000011/exr-20251231.htm"
+        },
+        {
+          "accession": "0001628280-25-009060",
+          "filed": "2025-02-28",
+          "period": "2024-12-31",
+          "primary_document": "exr-20241231.htm",
+          "submission_bytes": 16341700,
+          "url": "https://www.sec.gov/Archives/edgar/data/1289490/000162828025009060/exr-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1705696,
+      "ticker": "VICI",
+      "name": "VICI PROPERTIES INC.",
+      "sector": "Real Estate",
+      "sic": "6798",
+      "sic_description": "Real Estate Investment Trusts",
+      "filings": [
+        {
+          "accession": "0001705696-26-000034",
+          "filed": "2026-02-25",
+          "period": "2025-12-31",
+          "primary_document": "vici-20251231.htm",
+          "submission_bytes": 18299188,
+          "url": "https://www.sec.gov/Archives/edgar/data/1705696/000170569626000034/vici-20251231.htm"
+        },
+        {
+          "accession": "0001705696-25-000033",
+          "filed": "2025-02-20",
+          "period": "2024-12-31",
+          "primary_document": "vici-20241231.htm",
+          "submission_bytes": 18084909,
+          "url": "https://www.sec.gov/Archives/edgar/data/1705696/000170569625000033/vici-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 80424,
+      "ticker": "PG",
+      "name": "PROCTER & GAMBLE Co",
+      "sector": "Consumer Staples",
+      "sic": "2840",
+      "sic_description": "Soap, Detergents, Cleang Preparations, Perfumes, Cosmetics",
+      "filings": [
+        {
+          "accession": "0000080424-26-000103",
+          "filed": "2026-08-04",
+          "period": "2026-06-30",
+          "primary_document": "pg-20260630.htm",
+          "submission_bytes": 17753226,
+          "url": "https://www.sec.gov/Archives/edgar/data/80424/000008042426000103/pg-20260630.htm"
+        },
+        {
+          "accession": "0000080424-25-000076",
+          "filed": "2025-08-04",
+          "period": "2025-06-30",
+          "primary_document": "pg-20250630.htm",
+          "submission_bytes": 15224910,
+          "url": "https://www.sec.gov/Archives/edgar/data/80424/000008042425000076/pg-20250630.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1004980,
+      "ticker": "PCG",
+      "name": "PG&E Corp",
+      "sector": "Utilities",
+      "sic": "4931",
+      "sic_description": "Electric & Other Services Combined",
+      "filings": [
+        {
+          "accession": "0001004980-26-000009",
+          "filed": "2026-02-12",
+          "period": "2025-12-31",
+          "primary_document": "pcg-20251231.htm",
+          "submission_bytes": 27751937,
+          "url": "https://www.sec.gov/Archives/edgar/data/1004980/000100498026000009/pcg-20251231.htm"
+        },
+        {
+          "accession": "0001004980-25-000010",
+          "filed": "2025-02-13",
+          "period": "2024-12-31",
+          "primary_document": "pcg-20241231.htm",
+          "submission_bytes": 27275811,
+          "url": "https://www.sec.gov/Archives/edgar/data/1004980/000100498025000010/pcg-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1944048,
+      "ticker": "KVUE",
+      "name": "Kenvue Inc.",
+      "sector": "Consumer Staples",
+      "sic": "2844",
+      "sic_description": "Perfumes, Cosmetics & Other Toilet Preparations",
+      "filings": [
+        {
+          "accession": "0001944048-26-000030",
+          "filed": "2026-02-20",
+          "period": "2025-12-28",
+          "primary_document": "kvue-20251228.htm",
+          "submission_bytes": 19622337,
+          "url": "https://www.sec.gov/Archives/edgar/data/1944048/000194404826000030/kvue-20251228.htm"
+        },
+        {
+          "accession": "0001944048-25-000033",
+          "filed": "2025-02-24",
+          "period": "2024-12-29",
+          "primary_document": "kvue-20241229.htm",
+          "submission_bytes": 18417862,
+          "url": "https://www.sec.gov/Archives/edgar/data/1944048/000194404825000033/kvue-20241229.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1090012,
+      "ticker": "DVN",
+      "name": "DEVON ENERGY CORP/DE",
+      "sector": "Energy",
+      "sic": "1311",
+      "sic_description": "Crude Petroleum & Natural Gas",
+      "filings": [
+        {
+          "accession": "0001193125-26-056485",
+          "filed": "2026-02-18",
+          "period": "2025-12-31",
+          "primary_document": "dvn-20251231.htm",
+          "submission_bytes": 29601776,
+          "url": "https://www.sec.gov/Archives/edgar/data/1090012/000119312526056485/dvn-20251231.htm"
+        },
+        {
+          "accession": "0000950170-25-022844",
+          "filed": "2025-02-19",
+          "period": "2024-12-31",
+          "primary_document": "dvn-20241231.htm",
+          "submission_bytes": 28209627,
+          "url": "https://www.sec.gov/Archives/edgar/data/1090012/000095017025022844/dvn-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1091667,
+      "ticker": "CHTR",
+      "name": "CHARTER COMMUNICATIONS, INC. /MO/",
+      "sector": "Communication Services",
+      "sic": "4841",
+      "sic_description": "Cable & Other Pay Television Services",
+      "filings": [
+        {
+          "accession": "0001091667-26-000017",
+          "filed": "2026-01-30",
+          "period": "2025-12-31",
+          "primary_document": "chtr-20251231.htm",
+          "submission_bytes": 15147401,
+          "url": "https://www.sec.gov/Archives/edgar/data/1091667/000109166726000017/chtr-20251231.htm"
+        },
+        {
+          "accession": "0001091667-25-000034",
+          "filed": "2025-01-31",
+          "period": "2024-12-31",
+          "primary_document": "chtr-20241231.htm",
+          "submission_bytes": 14865912,
+          "url": "https://www.sec.gov/Archives/edgar/data/1091667/000109166725000034/chtr-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1751008,
+      "ticker": "APP",
+      "name": "AppLovin Corp",
+      "sector": "Communication Services",
+      "sic": "7370",
+      "sic_description": "Services-Computer Programming, Data Processing, Etc.",
+      "filings": [
+        {
+          "accession": "0001751008-26-000010",
+          "filed": "2026-02-19",
+          "period": "2025-12-31",
+          "primary_document": "app-20251231.htm",
+          "submission_bytes": 11725481,
+          "url": "https://www.sec.gov/Archives/edgar/data/1751008/000175100826000010/app-20251231.htm"
+        },
+        {
+          "accession": "0001751008-25-000018",
+          "filed": "2025-02-27",
+          "period": "2024-12-31",
+          "primary_document": "app-20241231.htm",
+          "submission_bytes": 13868164,
+          "url": "https://www.sec.gov/Archives/edgar/data/1751008/000175100825000018/app-20241231.htm"
+        }
+      ]
+    },
+    {
+      "cik": 1510295,
+      "ticker": "MPC",
+      "name": "Marathon Petroleum Corp",
+      "sector": "Energy",
+      "sic": "2911",
+      "sic_description": "Petroleum Refining",
+      "filings": [
+        {
+          "accession": "0001510295-26-000009",
+          "filed": "2026-02-26",
+          "period": "2025-12-31",
+          "primary_document": "mpc-20251231.htm",
+          "submission_bytes": 23471109,
+          "url": "https://www.sec.gov/Archives/edgar/data/1510295/000151029526000009/mpc-20251231.htm"
+        },
+        {
+          "accession": "0001510295-25-000012",
+          "filed": "2025-02-27",
+          "period": "2024-12-31",
+          "primary_document": "mpc-20241231.htm",
+          "submission_bytes": 22519707,
+          "url": "https://www.sec.gov/Archives/edgar/data/1510295/000151029525000012/mpc-20241231.htm"
+        }
+      ]
+    }
+  ]
+}

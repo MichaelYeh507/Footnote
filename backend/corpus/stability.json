@@ -1,0 +1,39 @@
+{
+  "model": "gpt-4o-mini",
+  "runs_per_setting": 3,
+  "results": [
+    {
+      "filing": "costco",
+      "temperature": 0.1,
+      "runs": 3,
+      "stable": true,
+      "fields_disagreeing": 0,
+      "disagreements": {}
+    },
+    {
+      "filing": "costco",
+      "temperature": 0.0,
+      "runs": 3,
+      "stable": true,
+      "fields_disagreeing": 0,
+      "disagreements": {}
+    },
+    {
+      "filing": "apple",
+      "temperature": 0.1,
+      "runs": 3,
+      "stable": true,
+      "fields_disagreeing": 0,
+      "disagreements": {}
+    },
+    {
+      "filing": "apple",
+      "temperature": 0.0,
+      "runs": 3,
+      "stable": true,
+      "fields_disagreeing": 0,
+      "disagreements": {}
+    }
+  ],
+  "any_instability": false
+}

@@ -31,3 +31,13 @@ build/
 .idea/
 *.swp
 .DS_Store
+
+# Corpus: filings are never committed, their identifiers always are.
+# See HYBRID-RETRIEVAL-SEC-PLAN.md §2.
+backend/corpus/filings/
+# Dev-set filings for the stability check, re-fetchable via
+# scripts/fetch_calibration_filings.py.
+backend/corpus/calibration/
+backend/corpus/*.txt
+backend/corpus/*.htm
+backend/corpus/*.html
