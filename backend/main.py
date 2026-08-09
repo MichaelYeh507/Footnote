@@ -4,15 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.pipeline import process_report
 from services.supabase_client import (
     create_report,
-    delete_company,
+    delete_extraction,
     delete_report,
-    get_all_companies,
-    get_company_detail,
+    get_all_extractions,
+    get_extraction_detail,
     get_recent_reports,
     get_report,
 )
 
-app = FastAPI(title="Knollwood Pipeline API")
+app = FastAPI(title="Document Pipeline API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,21 +42,21 @@ async def upload_pdf(
     return {"status": "processing", "report_id": report["id"]}
 
 
-@app.get("/api/companies")
-def list_companies():
-    return get_all_companies()
+@app.get("/api/extractions")
+def list_extractions():
+    return get_all_extractions()
 
 
-@app.get("/api/companies/{company_id}")
-def company_detail(company_id: str):
-    return get_company_detail(company_id)
+@app.get("/api/extractions/{extraction_id}")
+def extraction_detail(extraction_id: str):
+    return get_extraction_detail(extraction_id)
 
 
-@app.delete("/api/companies/{company_id}")
-def remove_company(company_id: str):
-    result = delete_company(company_id)
+@app.delete("/api/extractions/{extraction_id}")
+def remove_extraction(extraction_id: str):
+    result = delete_extraction(extraction_id)
     if not result.get("deleted"):
-        raise HTTPException(404, "Company not found")
+        raise HTTPException(404, "Extraction not found")
     return result
 
 
@@ -83,4 +83,4 @@ def remove_report(report_id: str):
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "knollwood-pipeline"}
+    return {"status": "ok", "service": "document-pipeline"}

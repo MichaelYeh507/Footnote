@@ -1,14 +1,22 @@
 import Link from "next/link";
-import { listCompanies, listReports, type Company, type Report } from "./lib/api";
-import { CompaniesGrid } from "./components/CompaniesGrid";
+import {
+  listExtractions,
+  listReports,
+  type Extraction,
+  type Report,
+} from "./lib/api";
+import { ExtractionsGrid } from "./components/ExtractionsGrid";
 import { RecentUploads } from "./components/RecentUploads";
 
 export default async function Home() {
-  let companies: Company[] = [];
+  let extractions: Extraction[] = [];
   let reports: Report[] = [];
   let error: string | null = null;
   try {
-    [companies, reports] = await Promise.all([listCompanies(), listReports(10)]);
+    [extractions, reports] = await Promise.all([
+      listExtractions(),
+      listReports(10),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : "Unknown error";
   }
@@ -19,10 +27,10 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-              Knollwood Pipeline
+              Document Pipeline
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Investment research dashboard
+              Structured extraction over filings
             </p>
           </div>
           <Link
@@ -48,23 +56,23 @@ export default async function Home() {
         <RecentUploads reports={reports} />
 
         <h2 className="mb-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Companies
+          Extractions
         </h2>
 
-        {companies.length === 0 && !error ? (
+        {extractions.length === 0 && !error ? (
           <div className="rounded-lg border border-dashed border-zinc-300 p-12 text-center dark:border-zinc-700">
             <p className="text-zinc-500 dark:text-zinc-400">
-              No companies yet. Upload a PDF to get started.
+              No extractions yet. Upload a PDF to get started.
             </p>
             <Link
               href="/upload"
               className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
-              Upload your first report →
+              Upload your first filing →
             </Link>
           </div>
         ) : (
-          <CompaniesGrid companies={companies} />
+          <ExtractionsGrid extractions={extractions} />
         )}
       </main>
     </div>

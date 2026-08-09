@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Knollwood Pipeline",
+  title: "Document Pipeline",
   description: "Investment research PDF pipeline",
 };
 

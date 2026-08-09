@@ -14,7 +14,7 @@ export function RecentUploads({ reports }: { reports: Report[] }) {
   if (reports.length === 0) return null;
 
   const onDelete = async (r: Report) => {
-    const label = r.company?.name ?? r.filename;
+    const label = r.extraction?.company_name ?? r.filename;
     if (!confirm(`Remove "${label}" from recent uploads? This cannot be undone.`)) return;
     setDeletingId(r.id);
     setError(null);
@@ -64,15 +64,15 @@ export function RecentUploads({ reports }: { reports: Report[] }) {
                     {r.filename}
                   </td>
                   <td className="px-4 py-2">
-                    {r.company ? (
+                    {r.extraction ? (
                       <Link
-                        href={`/companies/${r.company.id}`}
+                        href={`/extractions/${r.extraction.id}`}
                         className="text-blue-600 hover:underline dark:text-blue-400"
                       >
-                        {r.company.name}
-                        {r.company.ticker && (
+                        {r.extraction.company_name}
+                        {r.extraction.ticker && (
                           <span className="ml-1 font-mono text-xs text-zinc-500">
-                            {r.company.ticker}
+                            {r.extraction.ticker}
                           </span>
                         )}
                       </Link>

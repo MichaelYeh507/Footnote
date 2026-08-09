@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { deleteCompany } from "../lib/api";
+import { deleteExtraction } from "../lib/api";
 
-export function DeleteCompanyButton({
-  companyId,
+export function DeleteExtractionButton({
+  extractionId,
   companyName,
 }: {
-  companyId: string;
+  extractionId: string;
   companyName: string;
 }) {
   const router = useRouter();
@@ -16,11 +16,12 @@ export function DeleteCompanyButton({
   const [error, setError] = useState<string | null>(null);
 
   const onClick = async () => {
-    if (!confirm(`Delete ${companyName}? This cannot be undone.`)) return;
+    if (!confirm(`Delete the extraction for ${companyName}? This cannot be undone.`))
+      return;
     setLoading(true);
     setError(null);
     try {
-      await deleteCompany(companyId);
+      await deleteExtraction(extractionId);
       router.push("/");
       router.refresh();
     } catch (e) {

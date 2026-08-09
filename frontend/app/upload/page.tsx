@@ -71,8 +71,8 @@ export default function UploadPage() {
         return;
       }
 
-      if (report.status === "completed" && report.company) {
-        router.push(`/companies/${report.company.id}`);
+      if (report.status === "completed" && report.extraction) {
+        router.push(`/extractions/${report.extraction.id}`);
         return;
       }
       if (report.status === "failed") {

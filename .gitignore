@@ -2,6 +2,14 @@
 .env
 .env.local
 *.env
+!.env.example
+!.env.local.example
+
+# Internal planning docs — not for the public repo
+HANDOFF-*.md
+HYBRID-RETRIEVAL-SEC-PLAN.md
+RECON.md
+PROJECT-STANDARDS.md
 
 # Python
 venv/

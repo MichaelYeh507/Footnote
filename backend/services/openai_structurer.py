@@ -5,55 +5,61 @@ import openai
 from dotenv import load_dotenv
 
 load_dotenv()
+
+MODEL = "gpt-4o-mini"
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SYSTEM_PROMPT = """You are a financial document parser for an investment advisory firm.
-Given raw text from an investment research PDF, extract ALL data into the
-exact JSON schema below. Return ONLY valid JSON, no markdown or explanation.
+# Absence handling is load-bearing: dividends_declared_per_share and
+# goodwill_impairment are absent from many filings by design, and the
+# false-extraction rate measures whether the model invents values for them.
+# "Return null rather than guessing" is the instruction that rate evaluates.
+SYSTEM_PROMPT = """You are extracting structured data from SEC filings (Form 10-K).
+Return ONLY valid JSON matching the exact schema below. No markdown, no explanation.
 
-Convert all dollar amounts to numbers (millions). E.g. "$312.4" -> 312.4
-Convert percentages to numbers. E.g. "71.0%" -> 71.0
-If a field isn't present in the document, use null.
+RULES
+1. Extract only what the document states. Never infer, estimate, or calculate a
+   value that is not written in the filing.
+2. If a field is not present in the document, return null. Do not guess.
+3. null and 0 are different. Return 0 only when the filing states zero. Return
+   null when the line item does not appear at all.
+4. Report all monetary amounts in MILLIONS as plain numbers.
+   "$1,234,567 thousand" -> 1234.567   "$4.2 billion" -> 4200
+5. revenue_most_recent_fy is the MOST RECENT fiscal year only. Income statements
+   show several comparative years side by side; do not take an earlier column.
+6. ceo_name is the current principal executive officer. Signature pages list many
+   officers; if titles are combined or there are co-CEOs, return the one
+   designated principal executive officer.
 
 {
-  "company_name": "string",
-  "ticker": "string or null",
-  "sector": "string",
-  "headquarters": "string",
-  "ceo": "string",
-  "description": "string (2-3 sentence summary)",
-  "founded": "string",
-  "employees": "string",
-  "market_cap": "string",
-  "enterprise_value": "string",
-  "report_type": "equity_research | due_diligence | credit_analysis",
-  "rating": "BUY | HOLD | SELL | OVERWEIGHT | UNDERWEIGHT or null",
-  "price_target": number or null,
-  "current_price": number or null,
-  "investment_thesis": "string (key bull/bear points summarized)",
-  "financials": [
-    {
-      "fiscal_year": "FY2024A",
-      "is_estimate": false,
-      "revenue": number, "gross_profit": number, "gross_margin": number,
-      "ebitda": number, "ebitda_margin": number, "net_income": number,
-      "eps": number, "free_cash_flow": number, "fcf_margin": number
-    }
-  ],
+  "company_name": "string (registrant name, cover page)",
+  "ticker": "string or null (trading symbol, cover page)",
+  "fiscal_year_end": "string or null (e.g. 'December 31, 2024')",
+  "employees": "string or null (as stated, e.g. 'approximately 12,000')",
+  "total_assets": number or null,
+  "revenue_most_recent_fy": number or null,
+  "ceo_name": "string or null",
+  "dividends_declared_per_share": number or null,
+  "goodwill_impairment": number or null,
+  "sector": "string or null",
+  "headquarters": "string or null",
+  "description": "string or null (2-3 sentence summary of the business)",
+  "founded": "string or null (year of incorporation/founding)",
+  "report_type": "10-K",
   "risks": [
     {
       "risk_name": "string",
-      "description": "string",
-      "likelihood": "Low | Medium | High",
-      "impact": "Low | Medium | High | Very High",
-      "mitigation": "string"
+      "description": "string or null",
+      "mitigation": "string or null (only if the filing states one)"
     }
   ],
   "management": [
-    { "name": "string", "title": "string", "tenure": "string", "background": "string" }
-  ],
-  "valuations": [
-    { "metric_name": "string", "company_value": "string", "peer_avg": "string" }
+    {
+      "name": "string",
+      "title": "string or null",
+      "tenure": "string or null",
+      "background": "string or null"
+    }
   ]
 }"""
 
@@ -61,7 +67,7 @@ If a field isn't present in the document, use null.
 def structure_text(raw_text: str) -> dict:
     """Send extracted text to OpenAI and get structured JSON back."""
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=MODEL,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
