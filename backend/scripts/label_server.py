@@ -214,6 +214,8 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     </div>
     <div class="muted" style="margin-top:10px">Anchor — select text in the filing</div>
     <div id="anchor">nothing selected</div>
+    <div class="muted" style="margin-top:6px">Section (auto)</div>
+    <div id="section" style="font-size:12px;color:#8b93a7"></div>
     <label class="row"><input type="checkbox" id="amb"> ambiguous</label>
     <input type="text" id="note" placeholder="note (optional)" style="margin-top:8px">
     <div id="err"></div>
@@ -222,7 +224,8 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     <button style="width:100%;margin-top:8px" onclick="undo()">↶ Undo last label</button></div>
 </div>
 <script>
-let item=null, kind='value', anchor='', hits=[], at=-1, loaded=null;
+let item=null, kind='value', anchor='', section='', hits=[], at=-1, loaded=null;
+let textNodes=[], nodeIndex=new Map();
 
 async function load(){
   const s=await (await fetch('/api/queue')).json();
@@ -239,10 +242,12 @@ async function load(){
   if(loaded!==item.accession){
     doc.innerHTML='<p style="padding:40px;font:16px system-ui">loading filing…</p>';
     doc.innerHTML=await (await fetch('/api/filing/'+item.accession)).text();
-    loaded=item.accession;
+    loaded=item.accession; buildIndex();
   }
   lightField(item.field);
-  setKind('value'); anchor=''; document.getElementById('anchor').textContent='nothing selected';
+  setKind('value'); anchor=''; section='';
+  document.getElementById('anchor').textContent='nothing selected';
+  document.getElementById('section').textContent='';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
   // Focus the value box. Without this, typing a value goes to the global
   // shortcut handler instead of the field -- which silently produced empty
@@ -276,15 +281,46 @@ function setKind(k){
   document.getElementById('f-searched').style.display = k==='not_addressed'?'':'none';
 }
 const ANSWER=['value','stated_none','not_addressed'];
+// Nearest preceding "Note N -" / "Item N." heading, for locator.section.
+// The anchor stays on the evidence: a section title is identical across an
+// issuer's two fiscal years, so anchoring on it would destroy the only signal
+// that the second year was actually re-read.
+const SECTION_RX=/(Note\s+\d+\s*[-–—:]?\s*[A-Za-z][^\n]{0,58}|Item\s+\d+[A-Z]?\.\s*[A-Za-z][^\n]{0,58})/;
+function buildIndex(){
+  textNodes=[]; nodeIndex=new Map();
+  const w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT);
+  let n; while(n=w.nextNode()){ nodeIndex.set(n,textNodes.length); textNodes.push(n); }
+}
+function sectionFor(node){
+  while(node && !nodeIndex.has(node)) node=node.parentNode&&node.firstChild===node?null:node.parentNode;
+  let i=nodeIndex.has(node)?nodeIndex.get(node):-1;
+  if(i<0) return '';
+  for(let k=i;k>=0&&k>i-6000;k--){
+    const raw=(textNodes[k].textContent||'').trim();
+    // Headings only. Without these two conditions an inline cross-reference --
+    // "see Note 2 to our consolidated financial statements included elsewhere"
+    // -- is picked up as the section, which is worse than no section at all
+    // because it looks authoritative. A heading starts its own node and is short.
+    if(raw.length>110) continue;
+    const m=raw.match(SECTION_RX);
+    if(m && m.index===0) return m[0].replace(/\s+/g,' ').trim().slice(0,80);
+  }
+  return '';
+}
 doc.addEventListener('mouseup',()=>{
-  const t=(window.getSelection().toString()||'').trim();
-  if(t){ anchor=t.slice(0,80); document.getElementById('anchor').textContent=anchor; }
+  const sel=window.getSelection();
+  const t=(sel.toString()||'').trim();
+  if(!t) return;
+  anchor=t.slice(0,80);
+  section=sectionFor(sel.anchorNode)||'';
+  document.getElementById('anchor').textContent=anchor;
+  document.getElementById('section').textContent=section||'(no Note/Item heading found above)';
 });
 async function save(){
   err.textContent='';
   const body={accession:item.accession,ticker:item.ticker,period:item.period,
     field:item.field,answer_kind:kind,ambiguous:amb.checked,note:note.value,
-    locator:{section:'',anchor:anchor,
+    locator:{section:section,anchor:anchor,
              searched:searched.value.split(',').map(s=>s.trim()).filter(Boolean)}};
   if(kind==='value'){
     const raw=value.value.trim().replace(/[$,]/g,'');
