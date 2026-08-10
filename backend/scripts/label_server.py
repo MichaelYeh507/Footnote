@@ -212,11 +212,17 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
       <button id="k-stated_none" onclick="setKind('stated_none')">Stated none <kbd>2</kbd></button>
       <button id="k-not_addressed" onclick="setKind('not_addressed')">Not addressed <kbd>3</kbd></button>
     </div>
-    <div id="f-value"><input type="text" id="value" placeholder="value (millions where noted)">
-      <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-        <button onclick="scale(0.001)" title="figure is in thousands">÷1,000 thousands→millions</button>
-        <span class="muted" id="preview"></span>
+    <div id="f-value">
+      <input type="text" id="value" placeholder="type the figure exactly as printed">
+      <div id="scalebox" style="margin-top:8px;display:none">
+        <div class="muted">The table this came from is in:</div>
+        <div class="kinds" style="margin:5px 0 0">
+          <button id="s-millions"  onclick="setScale('millions')">millions</button>
+          <button id="s-thousands" onclick="setScale('thousands')">thousands</button>
+          <button id="s-billions"  onclick="setScale('billions')">billions</button>
+        </div>
       </div>
+      <div class="muted" id="preview" style="margin-top:6px"></div>
     </div>
     <div id="f-searched" style="display:none">
       <input type="text" id="searched" placeholder="terms you searched, comma separated">
@@ -259,6 +265,11 @@ async function load(){
   document.getElementById('section').textContent='';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
   preview.textContent='';
+  // Only the three millions-denominated fields get a scale selector. Offering
+  // it for per-share amounts or headcount would invite scaling something that
+  // must never be scaled.
+  document.getElementById('scalebox').style.display = isMonetary() ? '' : 'none';
+  setScale('millions');
   // Focus the value box. Without this, typing a value goes to the global
   // shortcut handler instead of the field -- which silently produced empty
   // labels rather than any visible error.
@@ -291,25 +302,47 @@ function setKind(k){
   document.getElementById('f-searched').style.display = k==='not_addressed'?'':'none';
 }
 const ANSWER=['value','stated_none','not_addressed'];
-// A units slip is a silent 1000x error that the matcher cannot distinguish
-// from a misread. Showing exactly what will be stored, and doing the division
-// on request, takes the arithmetic out of the labeler's head entirely.
+// A units slip is a silent 1000x error the matcher cannot tell from a misread.
+// The box always holds the figure exactly as printed in the filing; the scale
+// is declared separately and the app does the conversion.
+//
+// Declaring the scale rather than pressing a divide button matters: dividing
+// mutates the box, so pressing it twice is a silent 1,000,000x error, and
+// afterwards nothing records whether the conversion happened at all. A
+// declaration is idempotent and re-selectable.
+const MONETARY=['total_assets','revenue_most_recent_fy','goodwill_impairment'];
+const SCALES={millions:1, thousands:0.001, billions:1000};
+let unitScale='millions';
+
 function parsed(){
   const raw=value.value.trim().replace(/[$,]/g,'');
   return raw!=='' && !isNaN(Number(raw)) ? Number(raw) : null;
 }
-function scale(by){
+function isMonetary(){ return item && MONETARY.includes(item.field); }
+function storedValue(){
   const n=parsed();
-  if(n===null){ preview.textContent='type a number first'; return; }
-  value.value=String(Number((n*by).toPrecision(15)));
+  if(n===null) return null;
+  if(!isMonetary()) return n;
+  return Number((n*SCALES[unitScale]).toPrecision(15));
+}
+function setScale(s){
+  unitScale=s;
+  for(const k of Object.keys(SCALES))
+    document.getElementById('s-'+k).classList.toggle('sel',k===s);
   showPreview();
 }
 function showPreview(){
   const n=parsed();
   if(n===null){ preview.textContent = value.value.trim()? 'stores as text':''; return; }
-  const bn=n/1000;
-  preview.textContent='stores: '+n.toLocaleString(undefined,{maximumFractionDigits:6})
-    + (Math.abs(n)>=1000 ? '  (= $'+bn.toFixed(2)+'bn if millions)' : '');
+  const v=storedValue();
+  let msg='stores: '+v.toLocaleString(undefined,{maximumFractionDigits:6});
+  if(isMonetary()){
+    msg+=' million';
+    // Rendering as billions makes a units slip obvious at a glance:
+    // "$5869.26bn" is absurd in a way "5,869,259" is not.
+    msg+='  (= $'+(v/1000).toFixed(2)+'bn)';
+  }
+  preview.textContent=msg;
 }
 value.addEventListener('input',showPreview);
 // Nearest preceding "Note N -" / "Item N." heading, for locator.section.
@@ -379,8 +412,8 @@ async function save(){
     locator:{section:section,anchor:anchor,
              searched:searched.value.split(',').map(s=>s.trim()).filter(Boolean)}};
   if(kind==='value'){
-    const raw=value.value.trim().replace(/[$,]/g,'');
-    body.value = raw!=='' && !isNaN(Number(raw)) ? Number(raw) : value.value.trim();
+    const v=storedValue();
+    body.value = v!==null ? v : value.value.trim();
   }
   const r=await fetch('/api/label',{method:'POST',headers:{'Content-Type':'application/json'},
                                     body:JSON.stringify(body)});
