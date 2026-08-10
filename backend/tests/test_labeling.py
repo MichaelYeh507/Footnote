@@ -135,11 +135,24 @@ def test_not_addressed_is_accepted_with_search_terms():
         locator={"section": "", "anchor": "", "searched": ["dividend", "per share"]}))
 
 
-def test_value_kind_requires_a_value():
+@pytest.mark.parametrize("empty", [None, "", "   ", "\t"])
+def test_value_kind_requires_a_non_empty_value(empty):
+    """Regression. The check was `is None`, but the browser sends "" for an
+    empty input, so three labels saved with no value at all and the protocol
+    never noticed. An empty label scores the model WRONG on that instance --
+    matching treats "" as null, the prediction is not null, so it lands on
+    wrong_value -- and nothing downstream reveals it. Empty is missing."""
     with pytest.raises(ValueError, match="value"):
         validate_label(label_record(
             {"accession": "A", "ticker": "T", "period": "P", "field": "total_assets"},
-            answer_kind="value", value=None, locator=locator()))
+            answer_kind="value", value=empty, locator=locator()))
+
+
+def test_zero_is_a_real_value_not_an_empty_one():
+    """The guard must reject blanks without rejecting a legitimate 0."""
+    validate_label(label_record(
+        {"accession": "A", "ticker": "T", "period": "P", "field": "goodwill_impairment"},
+        answer_kind="value", value=0, locator=locator()))
 
 
 def test_unknown_answer_kind_is_rejected():

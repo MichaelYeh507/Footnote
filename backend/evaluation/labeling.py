@@ -172,10 +172,17 @@ def validate_label(record: dict) -> dict:
 
     locator = record.get("locator") or {}
 
-    if kind == "value" and record.get("value") is None:
+    # Blank counts as missing, not just None. The browser sends "" for an empty
+    # input, and an `is None` check let three empty labels through. An empty
+    # label is worse than a rejected one: matching treats "" as null, so it
+    # scores the model wrong on that instance with nothing to reveal it.
+    # `0` and `0.0` are real answers and must survive this check.
+    value = record.get("value")
+    if kind == "value" and (value is None
+                            or (isinstance(value, str) and not value.strip())):
         raise ValueError(
             f"answer_kind 'value' with no value for {record.get('field')!r}: "
-            f"use stated_none or not_addressed instead")
+            f"type the value, or use stated_none / not_addressed instead")
 
     if kind in ("value", "stated_none"):
         # Rule 1. Both assert something the filing says, so both must point at it.

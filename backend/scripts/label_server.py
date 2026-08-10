@@ -123,6 +123,25 @@ async def save_label(payload: dict):
     return JSONResponse({"ok": True})
 
 
+@app.post("/api/undo")
+def undo_last():
+    """Drop the most recent label so it can be redone.
+
+    Labeling 351 instances without a way back would mean the only remedy for a
+    misread is hand-editing a JSONL file. Rewrites the whole file rather than
+    truncating, so a partially written final line cannot survive.
+    """
+    if not LABELS.exists():
+        raise HTTPException(status_code=404, detail="no labels yet")
+    lines = [ln for ln in LABELS.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if not lines:
+        raise HTTPException(status_code=404, detail="no labels yet")
+    removed = json.loads(lines[-1])
+    LABELS.write_text("".join(ln + "\n" for ln in lines[:-1]), encoding="utf-8")
+    return JSONResponse({"ok": True, "removed": {"field": removed.get("field"),
+                                                 "ticker": removed.get("ticker")}})
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTMLResponse(PAGE)
@@ -199,7 +218,8 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     <input type="text" id="note" placeholder="note (optional)" style="margin-top:8px">
     <div id="err"></div>
   </div>
-  <div class="pad"><button class="go" onclick="save()">Save &amp; next <kbd>Ctrl+Enter</kbd></button></div>
+  <div class="pad"><button class="go" onclick="save()">Save &amp; next <kbd>Ctrl+Enter</kbd></button>
+    <button style="width:100%;margin-top:8px" onclick="undo()">↶ Undo last label</button></div>
 </div>
 <script>
 let item=null, kind='value', anchor='', hits=[], at=-1, loaded=null;
@@ -224,6 +244,14 @@ async function load(){
   lightField(item.field);
   setKind('value'); anchor=''; document.getElementById('anchor').textContent='nothing selected';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
+  // Focus the value box. Without this, typing a value goes to the global
+  // shortcut handler instead of the field -- which silently produced empty
+  // labels rather than any visible error.
+  value.focus();
+}
+async function undo(){
+  const r=await fetch('/api/undo',{method:'POST'});
+  if(r.ok) load();
 }
 function lightField(field){
   for(const m of doc.querySelectorAll('mark.hit.live')) m.classList.remove('live','on');

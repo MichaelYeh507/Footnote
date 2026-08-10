@@ -171,6 +171,39 @@ def test_a_label_violating_the_protocol_is_rejected_and_not_written(client, tmp_
     assert not (tmp_path / "labels.jsonl").exists()
 
 
+def test_an_empty_value_is_rejected_by_the_api(client, tmp_path):
+    """Regression, end to end. The browser sends "" for an empty input and the
+    server accepted it, writing labels with no value that would have scored the
+    model wrong on those instances."""
+    response = client.post("/api/label", json={
+        "accession": "A", "ticker": "T", "period": "P", "field": "company_name",
+        "answer_kind": "value", "value": "",
+        "locator": {"section": "", "anchor": "PLC"},
+    })
+    assert response.status_code == 400
+    assert not (tmp_path / "labels.jsonl").exists()
+
+
+def test_undo_removes_the_last_label_and_restores_it_to_the_queue(client, tmp_path):
+    payload = {
+        "accession": "0001748790-24-000022", "ticker": "AMCR",
+        "period": "2024-06-30", "field": "company_name",
+        "answer_kind": "value", "value": "Amcor plc",
+        "locator": {"section": "", "anchor": "Exact name of registrant"},
+    }
+    assert client.post("/api/label", json=payload).status_code == 200
+    assert client.get("/api/queue").json()["labeled"] == 1
+
+    assert client.post("/api/undo").json()["removed"]["field"] == "company_name"
+    state = client.get("/api/queue").json()
+    assert state["labeled"] == 0
+    assert state["item"]["field"] == "company_name", "undone item must come back"
+
+
+def test_undo_with_no_labels_is_a_clean_404(client):
+    assert client.post("/api/undo").status_code == 404
+
+
 def test_not_addressed_without_search_terms_is_rejected(client):
     response = client.post("/api/label", json={
         "accession": "A", "ticker": "T", "period": "P",
