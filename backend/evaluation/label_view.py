@@ -52,13 +52,16 @@ FIELD_GUIDANCE = {
         "\"Total assets\" on the CONSOLIDATED BALANCE SHEET, Item 8. TRAP: the "
         "same words appear in segment notes, guarantor/obligor supplemental "
         "tables, and intermediate subtotals. Confirm you are in the "
-        "consolidated statement. REPORT IN MILLIONS.",
+        "consolidated statement. REPORT IN MILLIONS -- read the caption above "
+        "the table: 12 of 39 corpus filings report in THOUSANDS, and those "
+        "figures must be divided by 1,000.",
     "revenue_most_recent_fy":
         "Top-line total from the consolidated statement of operations. Labels "
         "vary: Total net sales, Total revenues, Total sales and revenues, Total "
         "net revenue. TRAP: two or three years sit side by side -- confirm the "
         "column header rather than assuming the first column. Do not use a "
-        "total folding in non-operating income. REPORT IN MILLIONS.",
+        "total folding in non-operating income. REPORT IN MILLIONS -- read the "
+        "caption: many filings report in THOUSANDS, divide those by 1,000.",
     "ceo_name":
         "The person whose title is Chief Executive Officer -- signature page or "
         "Part III. TRAP: \"principal executive offices\" on the cover page is a "
@@ -76,8 +79,8 @@ FIELD_GUIDANCE = {
         "impairment\") is hypothetical, not a statement that none occurred. The "
         "goodwill carrying balance is not an impairment, and impairment of any "
         "other asset is not goodwill impairment. States a charge -> value in "
-        "MILLIONS. States none occurred -> stated none. Never addressed -> not "
-        "addressed.",
+        "MILLIONS, dividing by 1,000 if the table is in thousands. States none "
+        "occurred -> stated none. Never addressed -> not addressed.",
 }
 
 

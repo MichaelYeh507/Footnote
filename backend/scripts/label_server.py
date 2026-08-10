@@ -169,6 +169,9 @@ h2 { margin:0 0 4px; font-size:19px; }
 .guide { background:#1a1f2b; border-left:3px solid #7cc4ff; padding:10px 12px;
          font-size:13px; border-radius:0 4px 4px 0; }
 .guide b { color:#ffb86b; }
+.warn { background:#3a2410; border-left:3px solid #ffb020; padding:10px 12px;
+        font-size:13px; border-radius:0 4px 4px 0; color:#ffd9a0; }
+.warn b { color:#fff2d6; }
 button { font:inherit; padding:8px 12px; border-radius:6px; cursor:pointer;
          border:1px solid #3a4152; background:#232936; color:#e6e6e6; }
 button:hover { border-color:#7cc4ff; }
@@ -195,6 +198,7 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     <div class="field" id="fld"></div>
     <div class="muted" id="prog"></div>
   </div>
+  <div class="pad"><div id="units" style="display:none"></div></div>
   <div class="pad"><div class="guide" id="guide"></div></div>
   <div class="pad">
     <div class="muted">Highlights <span id="hits"></span>
@@ -208,7 +212,12 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
       <button id="k-stated_none" onclick="setKind('stated_none')">Stated none <kbd>2</kbd></button>
       <button id="k-not_addressed" onclick="setKind('not_addressed')">Not addressed <kbd>3</kbd></button>
     </div>
-    <div id="f-value"><input type="text" id="value" placeholder="value (millions where noted)"></div>
+    <div id="f-value"><input type="text" id="value" placeholder="value (millions where noted)">
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+        <button onclick="scale(0.001)" title="figure is in thousands">÷1,000 thousands→millions</button>
+        <span class="muted" id="preview"></span>
+      </div>
+    </div>
     <div id="f-searched" style="display:none">
       <input type="text" id="searched" placeholder="terms you searched, comma separated">
     </div>
@@ -242,13 +251,14 @@ async function load(){
   if(loaded!==item.accession){
     doc.innerHTML='<p style="padding:40px;font:16px system-ui">loading filing…</p>';
     doc.innerHTML=await (await fetch('/api/filing/'+item.accession)).text();
-    loaded=item.accession; buildIndex();
+    loaded=item.accession; buildIndex(); unitsBanner();
   }
   lightField(item.field);
   setKind('value'); anchor=''; section='';
   document.getElementById('anchor').textContent='nothing selected';
   document.getElementById('section').textContent='';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
+  preview.textContent='';
   // Focus the value box. Without this, typing a value goes to the global
   // shortcut handler instead of the field -- which silently produced empty
   // labels rather than any visible error.
@@ -281,11 +291,57 @@ function setKind(k){
   document.getElementById('f-searched').style.display = k==='not_addressed'?'':'none';
 }
 const ANSWER=['value','stated_none','not_addressed'];
+// A units slip is a silent 1000x error that the matcher cannot distinguish
+// from a misread. Showing exactly what will be stored, and doing the division
+// on request, takes the arithmetic out of the labeler's head entirely.
+function parsed(){
+  const raw=value.value.trim().replace(/[$,]/g,'');
+  return raw!=='' && !isNaN(Number(raw)) ? Number(raw) : null;
+}
+function scale(by){
+  const n=parsed();
+  if(n===null){ preview.textContent='type a number first'; return; }
+  value.value=String(Number((n*by).toPrecision(15)));
+  showPreview();
+}
+function showPreview(){
+  const n=parsed();
+  if(n===null){ preview.textContent = value.value.trim()? 'stores as text':''; return; }
+  const bn=n/1000;
+  preview.textContent='stores: '+n.toLocaleString(undefined,{maximumFractionDigits:6})
+    + (Math.abs(n)>=1000 ? '  (= $'+bn.toFixed(2)+'bn if millions)' : '');
+}
+value.addEventListener('input',showPreview);
 // Nearest preceding "Note N -" / "Item N." heading, for locator.section.
 // The anchor stays on the evidence: a section title is identical across an
 // issuer's two fiscal years, so anchoring on it would destroy the only signal
 // that the second year was actually re-read.
 const SECTION_RX=/(Note\s+\d+\s*[-–—:]?\s*[A-Za-z][^\n]{0,58}|Item\s+\d+[A-Z]?\.\s*[A-Za-z][^\n]{0,58})/;
+// 12 of 39 corpus filings report in thousands. Getting this wrong is a silent
+// 1000x error -- it does not look wrong in the record and the matcher just
+// scores it as a miss. Counting captions is a heads-up, never an authority:
+// a single filing can use different units in different tables, so the caption
+// above the table you are reading is what governs.
+function unitsBanner(){
+  const t=(doc.textContent||'');
+  const th=(t.match(/in thousands/gi)||[]).length;
+  const mi=(t.match(/in millions/gi)||[]).length;
+  const el=document.getElementById('units');
+  if(th>mi&&th>0){
+    el.style.display=''; el.className='warn';
+    el.innerHTML='⚠ This filing mostly says <b>"in thousands"</b> ('+th+' vs '+mi+
+      ' "in millions"). Monetary fields want MILLIONS — <b>divide by 1,000</b>. '+
+      'Still check the caption above each table.';
+  } else if(mi>0){
+    el.style.display=''; el.className='muted';
+    el.textContent='Captions: "in millions" ×'+mi+', "in thousands" ×'+th+
+      '. Check the caption above each table.';
+  } else {
+    el.style.display=''; el.className='warn';
+    el.innerHTML='⚠ No "in millions"/"in thousands" caption found. '+
+      '<b>Read the table caption carefully</b> before entering a monetary value.';
+  }
+}
 function buildIndex(){
   textNodes=[]; nodeIndex=new Map();
   const w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT);
