@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 
 from evaluation.label_view import (
     FIELD_GUIDANCE,
-    highlight,
+    highlight_all,
     sanitize_filing_html,
 )
 
@@ -81,39 +81,49 @@ def test_tables_and_text_survive_sanitization():
 
 # --- highlighting ----------------------------------------------------------
 
-def test_highlight_wraps_matches_in_text():
-    html, count = highlight("<p>The Total assets line</p>", "total_assets")
-    assert count >= 1
-    assert "<mark" in html and "Total assets" in html
+def test_highlight_tags_each_mark_with_its_field():
+    html, counts = highlight_all("<p>The Total assets line</p>")
+    assert counts.get("total_assets", 0) >= 1
+    assert 'data-fields="total_assets"' in html
+    assert "Total assets" in html
 
 
-def test_highlight_ids_are_sequential_for_navigation():
-    html, count = highlight(
-        "<p>Total assets here</p><p>and Total assets again</p>", "total_assets")
-    assert count >= 2
-    assert 'id="hit-0"' in html and 'id="hit-1"' in html
+def test_highlight_counts_every_field_in_one_pass():
+    """One parse per filing instead of one per field -- the reason this exists."""
+    html, counts = highlight_all(
+        "<p>Total assets 1</p><p>Trading Symbol(s) ABC</p>"
+        "<p>chief executive officer Jane Doe</p>")
+    assert counts.get("total_assets") and counts.get("ticker")
+    assert counts.get("ceo_name")
+    assert html.count("<mark") >= 3
 
 
 def test_highlight_never_writes_inside_a_tag():
     """The load-bearing one. A match inside an attribute value would corrupt
     the markup and silently change the document the labeler reads."""
-    html, _ = highlight(
-        '<div title="Total assets summary"><p>Total assets</p></div>',
-        "total_assets")
+    html, _ = highlight_all('<div title="Total assets summary"><p>Total assets</p></div>')
     assert 'title="Total assets summary"' in html, "attribute was rewritten"
     assert "<mark" in html
 
 
+def test_overlapping_fields_merge_into_one_mark_carrying_both():
+    """Nested marks would not survive serialization, so overlaps must merge."""
+    html, _ = highlight_all("<p>Total revenues and total assets</p>")
+    soup = __import__("bs4").BeautifulSoup(html, "html.parser")
+    for mark in soup.find_all("mark"):
+        assert not mark.find_all("mark"), "nested mark produced"
+        assert mark.get("data-fields"), "mark without a field tag"
+
+
 def test_highlight_does_not_match_inside_script_or_style_text():
-    html, _ = highlight("<style>.total-assets{color:red}</style><p>Total assets</p>",
-                        "total_assets")
+    html, _ = highlight_all("<style>.total-assets{color:red}</style><p>Total assets</p>")
     assert html.count("<mark") == 1
 
 
 def test_highlight_with_no_match_returns_document_unchanged():
-    source = "<p>nothing relevant</p>"
-    html, count = highlight(source, "goodwill_impairment")
-    assert count == 0 and html == source
+    source = "<p>nothing relevant at all here</p>"
+    html, counts = highlight_all(source)
+    assert counts == {} and html == source
 
 
 def test_every_queue_field_has_labeler_guidance():

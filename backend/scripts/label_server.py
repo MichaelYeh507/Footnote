@@ -32,7 +32,7 @@ from fastapi import FastAPI, HTTPException, Query  # noqa: E402
 from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402
 
 from evaluation.label_view import (  # noqa: E402
-    FIELD_GUIDANCE, highlight, sanitize_filing_html,
+    FIELD_GUIDANCE, highlight_all, sanitize_filing_html,
 )
 from evaluation.labeling import (  # noqa: E402
     ANSWER_KINDS, build_queue, completed_keys, label_record, validate_label,
@@ -48,7 +48,7 @@ app = FastAPI(title="SEC extraction labeling")
 _manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 _queue = build_queue(_manifest)
 _by_accession = {f["accession"]: f for f in _manifest["filings"]}
-_html_cache: dict[tuple[str, str], str] = {}
+_html_cache: dict[str, str] = {}
 
 
 def _done() -> set[tuple[str, str]]:
@@ -80,17 +80,17 @@ def filing_html(accession: str, field: str = Query("")):
     if filing is None:
         raise HTTPException(status_code=404, detail="unknown accession")
 
-    key = (accession, field)
-    if key not in _html_cache:
+    # Keyed by accession alone, with every field marked in the one pass. The
+    # client lights the current field's marks, so moving between the nine
+    # fields of a filing costs nothing and only a new filing pays the parse.
+    if accession not in _html_cache:
         document = FILINGS / f"{filing['ticker']}_{filing['period']}.htm"
         if not document.exists():
             raise HTTPException(status_code=404, detail=f"{document.name} not fetched")
-        cleaned = sanitize_filing_html(document.read_bytes())
-        marked, hits = highlight(cleaned, field)
+        marked, _counts = highlight_all(sanitize_filing_html(document.read_bytes()))
         _html_cache.clear()          # one filing in memory at a time; 10-Ks are large
-        _html_cache[key] = marked
-        _html_cache[(accession, field, "hits")] = hits  # type: ignore[index]
-    return HTMLResponse(_html_cache[key])
+        _html_cache[accession] = marked
+    return HTMLResponse(_html_cache[accession])
 
 
 @app.post("/api/label")
@@ -136,8 +136,11 @@ body { margin:0; font:14px/1.5 system-ui,Segoe UI,sans-serif; height:100vh;
 #doc { flex:1 1 62%; overflow:auto; background:#fff; color:#111; padding:24px; }
 #doc table { border-collapse:collapse; }
 #doc td,#doc th { padding:2px 6px; }
-mark.hit { background:#ffe066; padding:0 2px; }
-mark.hit.on { background:#ff9f1a; outline:2px solid #ff6b00; }
+/* Every field's candidates are marked once per filing; only the current
+   field's are lit, so switching fields is instant instead of a reparse. */
+mark.hit { background:none; color:inherit; padding:0; }
+mark.hit.live { background:#ffe066; padding:0 2px; border-radius:2px; }
+mark.hit.live.on { background:#ff9f1a; outline:2px solid #ff6b00; }
 #side { flex:1 1 38%; max-width:520px; display:flex; flex-direction:column;
         border-left:1px solid #2a2f3a; overflow:auto; }
 .pad { padding:14px 16px; border-bottom:1px solid #2a2f3a; }
@@ -199,7 +202,7 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
   <div class="pad"><button class="go" onclick="save()">Save &amp; next <kbd>Ctrl+Enter</kbd></button></div>
 </div>
 <script>
-let item=null, kind='value', anchor='', hits=[], at=-1;
+let item=null, kind='value', anchor='', hits=[], at=-1, loaded=null;
 
 async function load(){
   const s=await (await fetch('/api/queue')).json();
@@ -209,12 +212,27 @@ async function load(){
   fld.textContent=item.field;
   prog.textContent=item.index+' of '+s.total+'  ·  '+s.remaining+' remaining';
   guide.innerHTML=item.guidance.replace(/TRAP:/g,'<b>TRAP:</b>').replace(/MILLIONS/g,'<b>MILLIONS</b>');
-  doc.innerHTML=await (await fetch('/api/filing/'+item.accession+'?field='+item.field)).text();
-  hits=[...doc.querySelectorAll('mark.hit')]; at=-1;
-  document.getElementById('hits').textContent=hits.length?('0 / '+hits.length):'none — use Ctrl+F';
-  if(hits.length) jump(1);
+
+  // Only refetch when the filing changes. Within a filing the document is
+  // already in the DOM with every field marked, so switching fields is a
+  // class toggle rather than a 3s reparse.
+  if(loaded!==item.accession){
+    doc.innerHTML='<p style="padding:40px;font:16px system-ui">loading filing…</p>';
+    doc.innerHTML=await (await fetch('/api/filing/'+item.accession)).text();
+    loaded=item.accession;
+  }
+  lightField(item.field);
   setKind('value'); anchor=''; document.getElementById('anchor').textContent='nothing selected';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
+}
+function lightField(field){
+  for(const m of doc.querySelectorAll('mark.hit.live')) m.classList.remove('live','on');
+  hits=[...doc.querySelectorAll('mark.hit')].filter(
+    m=>(m.dataset.fields||'').split(' ').includes(field));
+  for(const m of hits) m.classList.add('live');
+  at=-1;
+  document.getElementById('hits').textContent=hits.length?('0 / '+hits.length):'none — use Ctrl+F';
+  if(hits.length) jump(1); else doc.scrollTop=0;
 }
 function jump(d){
   if(!hits.length) return;

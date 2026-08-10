@@ -116,23 +116,33 @@ def sanitize_filing_html(raw: bytes | str) -> str:
     return str(soup)
 
 
-def highlight(html: str, field: str) -> tuple[str, int]:
-    """Wrap this field's candidate passages in <mark id="hit-N">.
+def highlight_all(html: str) -> tuple[str, dict[str, int]]:
+    """Mark every field's candidate passages in one pass.
 
-    Operates on text nodes only. Editing the serialized HTML with a regex would
+    All nine fields at once, each mark tagged with the fields it belongs to, so
+    the document is parsed once per filing rather than once per field. That is
+    the whole reason for the shape: parsing a 3 MB 10-K costs ~1.4s, and doing
+    it on every field change cost 3.3s of dead time nine times per filing --
+    about nineteen minutes across the corpus, and a broken rhythm on every
+    single instance. The client toggles which field's marks are lit.
+
+    Operates on text nodes only. Editing serialized HTML with a regex would
     eventually match inside an attribute value -- `title="Total assets"` -- and
     rewrite the markup around it. That does not crash; it silently changes the
-    document the labeler is reading, which is the worst available failure here.
+    document the labeler is reading, which is the worst failure available here.
+
+    Overlapping matches from different fields merge into a single mark carrying
+    both field names, because nested marks would not survive serialization
+    intact.
     """
-    patterns = FIELD_PATTERNS.get(field, ())
-    if not patterns:
-        return html, 0
-
-    combined = re.compile("|".join(f"(?:{p})" for p in patterns), re.I)
-    soup = BeautifulSoup(html, "html.parser")
-    counter = 0
-
     from bs4 import NavigableString
+
+    compiled = {
+        field: re.compile("|".join(f"(?:{p})" for p in patterns), re.I | re.M)
+        for field, patterns in FIELD_PATTERNS.items() if patterns
+    }
+    soup = BeautifulSoup(html, "html.parser")
+    counts: dict[str, int] = {}
 
     # Snapshot first: the tree is mutated during iteration.
     text_nodes = [node for node in soup.find_all(string=True)
@@ -141,23 +151,38 @@ def highlight(html: str, field: str) -> tuple[str, int]:
 
     for node in text_nodes:
         text = str(node)
-        if not combined.search(text):
+        spans: list[list] = []
+        for field, pattern in compiled.items():
+            for match in pattern.finditer(text):
+                if match.end() > match.start():
+                    spans.append([match.start(), match.end(), {field}])
+        if not spans:
             continue
 
+        spans.sort(key=lambda s: (s[0], -s[1]))
+        merged: list[list] = []
+        for span in spans:
+            if merged and span[0] < merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], span[1])
+                merged[-1][2] |= span[2]
+            else:
+                merged.append(span)
+
         pieces, cursor = [], 0
-        for match in combined.finditer(text):
-            if match.start() > cursor:
-                pieces.append(NavigableString(text[cursor:match.start()]))
+        for start, end, fields in merged:
+            if start > cursor:
+                pieces.append(NavigableString(text[cursor:start]))
             mark = soup.new_tag("mark")
-            mark["id"] = f"hit-{counter}"
             mark["class"] = "hit"
-            mark.string = match.group(0)
+            mark["data-fields"] = " ".join(sorted(fields))
+            mark.string = text[start:end]
             pieces.append(mark)
-            counter += 1
-            cursor = match.end()
+            for field in fields:
+                counts[field] = counts.get(field, 0) + 1
+            cursor = end
         if cursor < len(text):
             pieces.append(NavigableString(text[cursor:]))
 
         node.replace_with(*pieces)
 
-    return (str(soup), counter) if counter else (html, 0)
+    return (str(soup), counts) if counts else (html, {})
