@@ -44,22 +44,59 @@ QUEUE_FIELDS = (
 # silently misses the real passage would push a labeler toward not_addressed,
 # which is the one label that cannot be checked from the record.
 FIELD_PATTERNS = {
-    "company_name": (r"exact name of registrant", r"^\s*[A-Z][A-Za-z0-9.,&' -]+(Inc|Corp|Company|plc|Ltd)\.?\s*$"),
+    "company_name": (
+        r"exact name of registrant",
+        # Corporate suffixes spelled out as well as abbreviated. The original
+        # stopped at `Corp`, so `AppLovin Corporation` was never lit and the
+        # labeler anchored it by hand.
+        r"^\s*[A-Z][A-Za-z0-9.,&' -]+"
+        r"(?:Inc|Corp|Corporation|Incorporated|Company|Companies|plc|PLC|Ltd"
+        r"|Limited|Holdings?|Group|N\.?V|S\.?A|LLC|L\.?P)\.?,?\s*$"),
     "ticker": (r"trading symbol", r"title of each class"),
     "fiscal_year_end": (r"for the fiscal year ended", r"fiscal year ended"),
     "employees": (r"employe(?:es|ed)\b", r"human capital", r"full-time equivalent"),
     "total_assets": (r"total assets", r"consolidated balance sheet"),
     "revenue_most_recent_fy": (
-        r"total net sales", r"total revenues?", r"total sales and revenues",
-        r"total net revenues?", r"total operating revenues?",
+        # `total` is optional. Three of the first five filings label the top
+        # line without it -- AMCR `Net sales`, APP `Revenue`, CHTR `REVENUES`.
+        r"\btotal\s+(?:net\s+)?(?:sales|revenues?|operating\s+revenues?)",
+        r"total sales and revenues",
+        r"^\s*(?:net\s+)?(?:sales|revenues?)\b",
+        r"(?:net\s+)?(?:sales|revenues?)[\s.$]*\d",
         r"consolidated statements? of (?:\w+\s+){0,2}(?:operations|income|earnings)"),
     "ceo_name": (r"chief executive officer", r"principal executive officer"),
+    # The widest set in this table, deliberately. A missed dividend becomes a
+    # wrong `not_addressed`, which lands straight on the false-extraction
+    # denominator -- the most fragile number in the project. A spurious hit
+    # costs one keypress of `n`.
     "dividends_declared_per_share": (
-        r"dividends? declared per", r"dividends? per (?:common )?share",
-        r"cash dividends? declared"),
+        r"dividends?\s+declared\s+per",
+        r"cash\s+dividends?\s+declared",
+        r"dividends?\s+per\s+(?:\w+\s+){0,3}(?:share|unit)",
+        # `Dividends declared ($0.4975 per share)` -- the money amount sits
+        # between "declared" and "per share", so every pattern above misses
+        # it. This is the form Amcor uses, and it was invisible until
+        # 2026-08-17 despite being the anchor a human picked twice.
+        r"dividends?\s+(?:declared|paid)[^.\n]{0,60}per\s+(?:\w+\s+){0,3}(?:share|unit)",
+        # A bare per-share money amount, for the table case where the caption
+        # and the figure land in different cells, so in different text nodes.
+        # `par value $0.01 per share` is excluded: it is never a dividend, and
+        # it appears on every cover page and throughout any merger description
+        # -- 5 of 12 hits on CHTR FY2024 before this exclusion.
+        r"(?<!par value )(?<!par value of )\$\s?\d+(?:\.\d+)?\s*per\s+(?:\w+\s+){0,3}(?:share|unit)",
+        # The sentences that justify `stated_none` for a non-payer.
+        r"(?:never|not|no)\s+(?:declared|paid)[^.\n]{0,40}dividends?",
+        r"no\s+dividends?[^.\n]{0,30}(?:declared|paid)",
+        r"dividends?[^.\n]{0,30}(?:have|has|were|was)\s+not\s+(?:been\s+)?(?:declared|paid)",
+        r"distributions?\s+declared\s+per",
+        r"dividend\s+(?:policy|yield)"),
     "goodwill_impairment": (
         r"goodwill impairment", r"impairment of goodwill",
-        r"no (?:goodwill )?impairment", r"impairment charge"),
+        r"no (?:goodwill )?impairment", r"impairment charge",
+        # `the Company concluded that goodwill was not impaired` -- the AMCR
+        # anchor, and the standard way a filing states that none occurred.
+        r"goodwill[^.\n]{0,40}(?:not|no)\s+impair",
+        r"(?:not|no)\s+impair[^.\n]{0,30}goodwill"),
 }
 
 

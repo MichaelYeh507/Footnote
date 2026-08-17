@@ -53,6 +53,10 @@ _by_accession = {f["accession"]: f for f in _manifest["filings"]}
 _html_cache: dict[str, str] = {}
 
 
+def _document_for(filing: dict) -> pathlib.Path:
+    return FILINGS / f"{filing['ticker']}_{filing['period']}.htm"
+
+
 def _done() -> set[tuple[str, str]]:
     if not LABELS.exists():
         return set()
@@ -69,6 +73,12 @@ def queue_state():
         item["name"] = filing["name"]
         item["guidance"] = FIELD_GUIDANCE.get(item["field"], "")
         item["index"] = len(_queue) - len(pending) + 1
+        # The path on disk, so the filing can be opened in an editor or a
+        # browser tab outside this app. Sent as a string rather than linked:
+        # a page served over http cannot navigate to file:// -- Chrome blocks
+        # it silently, with no error anywhere -- so the UI offers copy plus a
+        # same-origin tab instead of a link that looks live and does nothing.
+        item["document_path"] = str(_document_for(filing))
     return {"total": len(_queue), "labeled": len(done),
             "remaining": len(pending), "item": item,
             "answer_kinds": list(ANSWER_KINDS)}
@@ -86,10 +96,16 @@ def filing_html(accession: str, field: str = Query("")):
     # client lights the current field's marks, so moving between the nine
     # fields of a filing costs nothing and only a new filing pays the parse.
     if accession not in _html_cache:
-        document = FILINGS / f"{filing['ticker']}_{filing['period']}.htm"
+        document = _document_for(filing)
         if not document.exists():
             raise HTTPException(status_code=404, detail=f"{document.name} not fetched")
-        marked, _counts = highlight_all(sanitize_filing_html(document.read_bytes()))
+        # The ticker and the registrant name come from the manifest, so they
+        # can be marked exactly rather than approximated by a pattern. Both
+        # were being anchored by hand on every filing.
+        marked, _counts = highlight_all(
+            sanitize_filing_html(document.read_bytes()),
+            literals={"ticker": [filing["ticker"]],
+                      "company_name": [filing["name"]]})
         _html_cache.clear()          # one filing in memory at a time; 10-Ks are large
         _html_cache[accession] = marked
     return HTMLResponse(_html_cache[accession])
@@ -188,6 +204,10 @@ label.row { display:flex; gap:8px; align-items:center; margin-top:8px; font-size
 #anchor { font-family:ui-monospace,Consolas,monospace; font-size:12px;
           background:#161a22; border:1px dashed #3a4152; border-radius:6px;
           padding:8px; min-height:34px; word-break:break-word; }
+#path { font-family:ui-monospace,Consolas,monospace; font-size:11px;
+        background:#161a22; border:1px solid #3a4152; border-radius:6px;
+        padding:7px 8px; word-break:break-all; cursor:pointer; color:#9fd0ff; }
+#path:hover { border-color:#7cc4ff; }
 #err { color:#fca5a5; font-size:13px; min-height:18px; margin-top:6px; }
 kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
       padding:0 4px; font-size:11px; }
@@ -206,6 +226,16 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     <div class="muted">Highlights <span id="hits"></span>
       <button onclick="jump(-1)">◀</button><button onclick="jump(1)">▶</button>
       &nbsp;<kbd>n</kbd>/<kbd>p</kbd></div>
+  </div>
+  <div class="pad">
+    <div class="muted">This filing on disk</div>
+    <div id="path" title="click to copy"></div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button style="flex:1" onclick="copyPath()">Copy path</button>
+      <button style="flex:1" onclick="openTab()">Open in tab ↗</button>
+    </div>
+    <div class="muted" style="margin-top:6px">The tab is the sanitized filing on
+      this server, so browser <kbd>Ctrl+F</kbd> works over the whole document.</div>
   </div>
   <div class="pad">
     <div class="muted">Answer</div>
@@ -252,6 +282,8 @@ async function load(){
   fld.textContent=item.field;
   prog.textContent=item.index+' of '+s.total+'  ·  '+s.remaining+' remaining';
   guide.innerHTML=item.guidance.replace(/TRAP:/g,'<b>TRAP:</b>').replace(/MILLIONS/g,'<b>MILLIONS</b>');
+  document.getElementById('path').textContent=item.document_path||'';
+  document.getElementById('path').onclick=copyPath;
 
   // Only refetch when the filing changes. Within a filing the document is
   // already in the DOM with every field marked, so switching fields is a
@@ -280,6 +312,18 @@ async function load(){
 async function undo(){
   const r=await fetch('/api/undo',{method:'POST'});
   if(r.ok) load();
+}
+// A file:// link from an http:// page is blocked by Chrome with no error, so
+// the path is copyable text and the tab is served from here instead.
+function copyPath(){
+  if(!item) return;
+  navigator.clipboard.writeText(item.document_path).then(()=>{
+    const el=document.getElementById('path'), was=el.textContent;
+    el.textContent='copied'; setTimeout(()=>{el.textContent=was;},700);
+  });
+}
+function openTab(){
+  if(item) window.open('/api/filing/'+item.accession+'?field='+item.field,'_blank');
 }
 function lightField(field){
   for(const m of doc.querySelectorAll('mark.hit.live')) m.classList.remove('live','on');

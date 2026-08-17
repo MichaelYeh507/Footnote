@@ -119,8 +119,18 @@ def sanitize_filing_html(raw: bytes | str) -> str:
     return str(soup)
 
 
-def highlight_all(html: str) -> tuple[str, dict[str, int]]:
+def highlight_all(html: str,
+                  literals: dict[str, list[str]] | None = None,
+                  ) -> tuple[str, dict[str, int]]:
     """Mark every field's candidate passages in one pass.
+
+    `literals` carries per-filing exact strings the manifest already knows --
+    the ticker symbol and the registrant name. Both were being anchored by hand
+    because the patterns can only light the surrounding header (`Trading
+    Symbol(s)`), never the symbol itself. Matched **case-sensitively**, unlike
+    the patterns: `APP` matched case-insensitively lights every "app" in
+    AppLovin's filing, which buries the one occurrence that matters just as
+    effectively as showing nothing.
 
     All nine fields at once, each mark tagged with the fields it belongs to, so
     the document is parsed once per filing rather than once per field. That is
@@ -144,6 +154,15 @@ def highlight_all(html: str) -> tuple[str, dict[str, int]]:
         field: re.compile("|".join(f"(?:{p})" for p in patterns), re.I | re.M)
         for field, patterns in FIELD_PATTERNS.items() if patterns
     }
+
+    # Case-sensitive, escaped, and blank entries dropped. An empty string
+    # compiled into an alternation matches at every position, which would mark
+    # the entire filing and light nothing usefully at all.
+    for field, values in (literals or {}).items():
+        wanted = [re.escape(v) for v in values if v and v.strip()]
+        if not wanted:
+            continue
+        compiled[f"\x00lit:{field}"] = re.compile("|".join(wanted), re.M)
     soup = BeautifulSoup(html, "html.parser")
     counts: dict[str, int] = {}
 
@@ -156,9 +175,12 @@ def highlight_all(html: str) -> tuple[str, dict[str, int]]:
         text = str(node)
         spans: list[list] = []
         for field, pattern in compiled.items():
+            # Literal groups are keyed apart so they compile separately, but
+            # they mark the same field the patterns do.
+            name = field.split(":", 1)[1] if field.startswith("\x00lit:") else field
             for match in pattern.finditer(text):
                 if match.end() > match.start():
-                    spans.append([match.start(), match.end(), {field}])
+                    spans.append([match.start(), match.end(), {name}])
         if not spans:
             continue
 
