@@ -39,6 +39,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import corpus_paths  # noqa: E402
 from services.html_parser import extract_text_from_html  # noqa: E402
 
 UA = "RAG-pipeline-prototype you@example.org"
@@ -105,7 +106,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issuers", type=pathlib.Path, default="corpus/issuers.json")
     parser.add_argument("--out", type=pathlib.Path, default="corpus/manifest.json")
-    parser.add_argument("--filings-dir", type=pathlib.Path, default="corpus/filings")
+    parser.add_argument("--filings-dir", type=pathlib.Path,
+                        default=corpus_paths.filings_dir())
     args = parser.parse_args()
 
     issuers = json.loads(pathlib.Path(args.issuers).read_text(encoding="utf-8"))

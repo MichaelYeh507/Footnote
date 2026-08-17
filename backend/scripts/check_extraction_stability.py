@@ -25,6 +25,7 @@ import sys
 from collections import Counter
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import corpus_paths  # noqa: E402
 from services.openai_structurer import MODEL, SYSTEM_PROMPT, client  # noqa: E402
 
 EVAL_FIELDS = (
@@ -67,7 +68,7 @@ def main() -> int:
     parser.add_argument("--out", type=pathlib.Path,
                         default=pathlib.Path("corpus/stability.json"))
     parser.add_argument("--filings-dir", type=pathlib.Path,
-                        default=pathlib.Path("corpus/calibration"),
+                        default=corpus_paths.calibration_dir(),
                         help="directory of <slug>.txt extracted calibration "
                              "filings; gitignored, populated by "
                              "fetch_calibration_filings.py")

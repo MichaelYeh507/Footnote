@@ -33,6 +33,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
+import corpus_paths  # noqa: E402
+
 from evaluation.labeling import QUEUE_FIELDS, validate_label  # noqa: E402
 from services.html_parser import extract_text_from_html  # noqa: E402
 
@@ -49,7 +51,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=pathlib.Path,
                         default=pathlib.Path("corpus/manifest.json"))
     parser.add_argument("--filings-dir", type=pathlib.Path,
-                        default=pathlib.Path("corpus/filings"))
+                        default=corpus_paths.filings_dir())
     args = parser.parse_args()
 
     if not args.labels.exists():

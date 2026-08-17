@@ -29,6 +29,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
+import corpus_paths  # noqa: E402
+
 from evaluation.extraction_run import (  # noqa: E402
     EVAL_FIELDS, completed_accessions, eval_filings, prediction_records,
     progress_line, prompt_fingerprint, run_metadata,
@@ -44,7 +46,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=pathlib.Path,
                         default=pathlib.Path("corpus/manifest.json"))
     parser.add_argument("--filings-dir", type=pathlib.Path,
-                        default=pathlib.Path("corpus/filings"))
+                        default=corpus_paths.filings_dir())
     parser.add_argument("--out", type=pathlib.Path,
                         default=pathlib.Path("corpus/predictions.jsonl"))
     parser.add_argument("--meta", type=pathlib.Path,

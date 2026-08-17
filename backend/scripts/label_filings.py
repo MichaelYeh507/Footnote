@@ -30,6 +30,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
+import corpus_paths  # noqa: E402
+
 from evaluation.labeling import (  # noqa: E402
     build_queue, candidate_passages, completed_keys, label_record, validate_label,
 )
@@ -168,7 +170,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=pathlib.Path,
                         default=pathlib.Path("corpus/manifest.json"))
     parser.add_argument("--filings-dir", type=pathlib.Path,
-                        default=pathlib.Path("corpus/filings"))
+                        default=corpus_paths.filings_dir())
     parser.add_argument("--out", type=pathlib.Path,
                         default=pathlib.Path("corpus/labels.jsonl"))
     args = parser.parse_args()

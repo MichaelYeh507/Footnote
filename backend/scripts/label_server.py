@@ -31,6 +31,8 @@ import uvicorn  # noqa: E402
 from fastapi import FastAPI, HTTPException, Query  # noqa: E402
 from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402
 
+import corpus_paths  # noqa: E402
+
 from evaluation.label_view import (  # noqa: E402
     FIELD_GUIDANCE, highlight_all, sanitize_filing_html,
 )
@@ -40,7 +42,7 @@ from evaluation.labeling import (  # noqa: E402
 
 BACKEND = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST = BACKEND / "corpus" / "manifest.json"
-FILINGS = BACKEND / "corpus" / "filings"
+FILINGS = corpus_paths.filings_dir()
 LABELS = BACKEND / "corpus" / "labels.jsonl"
 
 app = FastAPI(title="SEC extraction labeling")

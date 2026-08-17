@@ -29,6 +29,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import corpus_paths  # noqa: E402
 from services.html_parser import extract_text_from_html  # noqa: E402
 
 UA = "RAG-pipeline-prototype you@example.org"
@@ -93,7 +94,7 @@ def latest_10k(cik: int, accession: str | None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=pathlib.Path,
-                        default=pathlib.Path("corpus/calibration"))
+                        default=corpus_paths.calibration_dir())
     parser.add_argument("--accession", action="append", default=[],
                         metavar="SLUG=ACCESSION",
                         help="pin a slug to an exact accession, e.g. "
