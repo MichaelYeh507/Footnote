@@ -23,6 +23,7 @@ port.
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
@@ -37,7 +38,8 @@ from evaluation.label_view import (  # noqa: E402
     FIELD_GUIDANCE, highlight_all, sanitize_filing_html,
 )
 from evaluation.labeling import (  # noqa: E402
-    ANSWER_KINDS, build_queue, completed_keys, label_record, validate_label,
+    ANSWER_KINDS, build_queue, completed_keys, label_record, prior_hint,
+    validate_label,
 )
 
 BACKEND = pathlib.Path(__file__).resolve().parent.parent
@@ -51,6 +53,38 @@ _manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 _queue = build_queue(_manifest)
 _by_accession = {f["accession"]: f for f in _manifest["filings"]}
 _html_cache: dict[str, str] = {}
+# accession -> field -> the marked strings, in document order. Same order the
+# client's `hits` array ends up in, because both derive from document order.
+_marks_cache: dict[str, dict[str, list[str]]] = {}
+
+_MARK = re.compile(r'<mark[^>]*data-fields="([^"]*)"[^>]*>(.*?)</mark>', re.S)
+
+
+_TAGS = re.compile(r"<[^>]+>")
+CONTEXT_RADIUS = 180
+
+
+def _marks_by_field(marked_html: str) -> dict[str, list[tuple[str, str]]]:
+    """Each field's marks in document order, with surrounding text.
+
+    A regex over serialized HTML is safe here and nowhere else in this file:
+    `highlight_all` sets `mark.string`, so a mark holds one text node and never
+    nested markup. Re-parsing a 3 MB filing with BeautifulSoup to recover what
+    the marker already knew would cost another 1.4s per filing.
+
+    The context window is what makes the prior-year hint work on the fields
+    that matter. Thirteen marks in one filing read `chief executive officer`
+    and the mark text alone cannot separate them; the surrounding text can,
+    because only one of them sits beside the officer's name.
+    """
+    out: dict[str, list[tuple[str, str]]] = {}
+    for match in _MARK.finditer(marked_html):
+        window = marked_html[max(0, match.start() - CONTEXT_RADIUS):
+                             match.end() + CONTEXT_RADIUS]
+        context = re.sub(r"\s+", " ", _TAGS.sub(" ", window)).strip()
+        for field in match.group(1).split():
+            out.setdefault(field, []).append((match.group(2), context))
+    return out
 
 
 def _document_for(filing: dict) -> pathlib.Path:
@@ -61,6 +95,13 @@ def _done() -> set[tuple[str, str]]:
     if not LABELS.exists():
         return set()
     return completed_keys(LABELS.read_text(encoding="utf-8").splitlines())
+
+
+def _labels() -> list[dict]:
+    if not LABELS.exists():
+        return []
+    return [json.loads(line) for line
+            in LABELS.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 @app.get("/api/queue")
@@ -107,8 +148,42 @@ def filing_html(accession: str, field: str = Query("")):
             literals={"ticker": [filing["ticker"]],
                       "company_name": [filing["name"]]})
         _html_cache.clear()          # one filing in memory at a time; 10-Ks are large
+        _marks_cache.clear()
         _html_cache[accession] = marked
+        _marks_cache[accession] = _marks_by_field(marked)
     return HTMLResponse(_html_cache[accession])
+
+
+@app.get("/api/prior-hint")
+def prior_year_hint(accession: str, field: str):
+    """Where the other fiscal year's evidence sat, as an index into this
+    year's highlights.
+
+    An issuer's two 10-Ks are near-duplicates, so the second year's hunt is
+    wasted motion -- but the second year's *read* is not. §2 sized the corpus
+    at 22 issuers x 2 years rather than 4 x 10 exactly because consecutive
+    filings correlate, and protocol rule 3 names the carry-over risk. Five of
+    the nine fields change value every year.
+
+    So this moves the cursor and nothing else. The response is three integers
+    and a date string; last year's anchor and value never leave the server.
+    """
+    filing = _by_accession.get(accession)
+    if filing is None:
+        raise HTTPException(status_code=404, detail="unknown accession")
+    entries = _marks_cache.get(accession, {}).get(field, [])
+    if not entries:
+        return JSONResponse({})
+
+    prior = None
+    for record in _labels():
+        if (record.get("ticker") == filing["ticker"]
+                and record.get("field") == field
+                and record.get("period") != filing["period"]):
+            prior = record          # last write wins; there is at most one
+    hint = prior_hint(prior, [text for text, _ in entries],
+                      [context for _, context in entries])
+    return JSONResponse(hint or {})
 
 
 @app.post("/api/label")
@@ -204,6 +279,9 @@ label.row { display:flex; gap:8px; align-items:center; margin-top:8px; font-size
 #anchor { font-family:ui-monospace,Consolas,monospace; font-size:12px;
           background:#161a22; border:1px dashed #3a4152; border-radius:6px;
           padding:8px; min-height:34px; word-break:break-word; }
+.prior { margin-top:8px; background:#12241c; border-left:3px solid #34d399;
+         padding:8px 10px; font-size:12px; color:#a7f3d0; border-radius:0 4px 4px 0; }
+.prior b { color:#ecfdf5; }
 #path { font-family:ui-monospace,Consolas,monospace; font-size:11px;
         background:#161a22; border:1px solid #3a4152; border-radius:6px;
         padding:7px 8px; word-break:break-all; cursor:pointer; color:#9fd0ff; }
@@ -226,6 +304,7 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
     <div class="muted">Highlights <span id="hits"></span>
       <button onclick="jump(-1)">◀</button><button onclick="jump(1)">▶</button>
       &nbsp;<kbd>n</kbd>/<kbd>p</kbd></div>
+    <div id="prior" class="prior" style="display:none"></div>
   </div>
   <div class="pad">
     <div class="muted">This filing on disk</div>
@@ -294,6 +373,7 @@ async function load(){
     loaded=item.accession; buildIndex(); unitsBanner();
   }
   lightField(item.field);
+  priorJump();
   setKind('value'); anchor=''; section='';
   document.getElementById('anchor').textContent='nothing selected';
   document.getElementById('section').textContent='';
@@ -333,6 +413,27 @@ function lightField(field){
   at=-1;
   document.getElementById('hits').textContent=hits.length?('0 / '+hits.length):'none — use Ctrl+F';
   if(hits.length) jump(1); else doc.scrollTop=0;
+}
+// Start the cursor where the other fiscal year's evidence was found. The
+// server sends an index and nothing else -- no anchor, no value -- so this
+// moves the cursor and cannot show last year's answer.
+async function priorJump(){
+  const box=document.getElementById('prior');
+  box.style.display='none'; box.textContent='';
+  if(!item || !hits.length) return;
+  let h={};
+  try{
+    h=await (await fetch('/api/prior-hint?accession='+encodeURIComponent(item.accession)
+                         +'&field='+encodeURIComponent(item.field))).json();
+  }catch(e){ return; }
+  if(typeof h.index!=='number' || h.index<0 || h.index>=hits.length) return;
+  if(at>=0) hits[at].classList.remove('on');
+  at=h.index; hits[at].classList.add('on'); hits[at].scrollIntoView({block:'center'});
+  document.getElementById('hits').textContent=(at+1)+' / '+hits.length;
+  box.style.display='';
+  box.innerHTML='Started at highlight <b>'+(h.index+1)+'</b> — where FY '+h.period
+    +' was anchored. <b>Read this year’s figure.</b> Five of the nine fields '
+    +'change every year, and the anchor must come from this document.';
 }
 function jump(d){
   if(!hits.length) return;

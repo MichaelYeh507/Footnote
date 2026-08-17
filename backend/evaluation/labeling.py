@@ -15,6 +15,7 @@ Pure functions only. The interactive tool is scripts/label_filings.py.
 """
 
 import datetime as _datetime
+import difflib as _difflib
 import json
 import re
 
@@ -98,6 +99,119 @@ FIELD_PATTERNS = {
         r"goodwill[^.\n]{0,40}(?:not|no)\s+impair",
         r"(?:not|no)\s+impair[^.\n]{0,30}goodwill"),
 }
+
+
+def prior_anchor_key(anchor: str | None) -> str:
+    """An anchor reduced to the part that repeats across an issuer's two years.
+
+    Digits, currency and punctuation go; the caption survives. `Total assets
+    $ 16,524` and `Total assets $ 17,102` both reduce to `total assets`, which
+    is why a second-year hunt is avoidable at all.
+
+    Stripping digits is not the privacy mechanism -- for `ceo_name` the anchor
+    is the answer and no amount of stripping hides it. It is here so the key
+    matches across years. The value is kept from the labeler by matching
+    server-side and returning integers; see `prior_hint`.
+    """
+    if not anchor:
+        return ""
+    text = re.sub(r"[\d$,%()\[\]:;.–—-]+", " ", str(anchor))
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+MARK_MATCH_FLOOR = 0.82
+
+
+def best_mark_index(marks: list[str], key: str,
+                    contexts: list[str] | None = None) -> int | None:
+    """Which of this year's candidates sits where last year's anchor sat.
+
+    The two strings being compared are **different shapes**, which is the thing
+    that makes this non-obvious. `key` comes from an anchor the labeler
+    selected, so it is a phrase; a mark is only what a pattern matched, so it
+    is a keyword. Measured on AMCR: anchor `the company concluded that goodwill
+    was not impaired` against mark `goodwill was not impair`, and anchor `peter
+    konieczny interim chief executive officer` against mark `chief executive
+    officer`. Direct similarity scores both of those as misses.
+
+    So three levels of evidence, ordered by confidence:
+
+    1. **An exact match on the mark** scores 1.0, which nothing can outrank.
+       This is the balance-sheet case, where `Total assets` is a row caption in
+       both years, and it is what keeps the hint off `Total current assets` and
+       `Total assets and liabilities` -- rows that merely contain the key.
+       Landing on a subtotal is the specific trap the field guidance warns of.
+    2. **Containment either way** at 0.90: the phrase-versus-keyword case.
+    3. **The mark's surrounding context**, the only thing that can separate 13
+       marks that all read `chief executive officer`. The signature-page
+       occurrence is the one whose context also carries the officer's name, and
+       last year's anchor carries that name too.
+
+    Two earlier drafts special-cased exact matches, first with an early return
+    and then with a restricted candidate pool. Perturbation showed both were
+    unreachable in effect -- scoring 1.0 already wins -- so both were deleted
+    rather than kept as code no test could distinguish.
+
+    Returns None rather than a best guess when nothing clears the floor. A
+    wrong jump is worse than no jump -- it puts the labeler in front of a
+    plausible row and calls it last year's location.
+    """
+    if not key or not marks:
+        return None
+    reduced = [prior_anchor_key(m) for m in marks]
+    ctx = [prior_anchor_key(c) for c in (contexts or [])]
+
+    scored = []
+    for index in range(len(marks)):
+        mark = reduced[index]
+        if not mark:
+            continue
+        if mark == key:
+            mark_score = 1.0
+        elif mark in key or key in mark:
+            mark_score = 0.90
+        else:
+            mark_score = _difflib.SequenceMatcher(None, key, mark).ratio()
+
+        around = ctx[index] if index < len(ctx) else ""
+        if around:
+            context_score = (0.95 if key in around
+                             else _difflib.SequenceMatcher(None, key, around).ratio())
+        else:
+            context_score = 0.0
+
+        # Two levels, and the second is load-bearing. Containment saturates:
+        # when thirteen marks all read `chief executive officer`, every one of
+        # them is contained in the anchor and scores identically, so a single
+        # combined score cannot separate them and the earliest index wins by
+        # accident. Ranking on the context score second breaks exactly those
+        # ties, while `max` on the first level keeps a strong mark ahead of a
+        # merely suggestive context.
+        scored.append((max(mark_score, context_score), context_score,
+                       -abs(len(mark) - len(key)), -index))
+    if not scored:
+        return None
+    score, _ctx, _penalty, negated = max(scored)
+    return -negated if score >= MARK_MATCH_FLOOR else None
+
+
+def prior_hint(prior: dict | None, marks: list[str],
+               contexts: list[str] | None = None) -> dict | None:
+    """Where to start in this year's filing, as integers and nothing else.
+
+    The returned dict carries exactly `index`, `of` and `period`. No anchor, no
+    value, no field text. That is deliberate and it is the whole safety
+    argument: a scheme that ships last year's anchor to the browser and trusts
+    the template not to render it is one edit away from displaying last year's
+    answer, and for `ceo_name` the anchor is the answer verbatim.
+    """
+    if not prior:
+        return None
+    key = prior_anchor_key((prior.get("locator") or {}).get("anchor"))
+    index = best_mark_index(marks, key, contexts)
+    if index is None:
+        return None
+    return {"index": index, "of": len(marks), "period": prior.get("period", "")}
 
 
 def build_queue(manifest: dict) -> list[dict]:
