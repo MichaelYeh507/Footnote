@@ -32,12 +32,50 @@ sys.path.insert(0, str(BACKEND))
 
 from evaluation.labeling import (  # noqa: E402
     anchor_supports_field, carried_over_pairs, drop_labels,
+    unexplained_ambiguities,
 )
 
 
-def label(ticker, period, field, value, anchor, kind="value"):
-    return {"ticker": ticker, "period": period, "field": field, "value": value,
-            "answer_kind": kind, "locator": {"anchor": anchor}}
+def label(ticker, period, field, value, anchor, kind="value", **extra):
+    row = {"ticker": ticker, "period": period, "field": field, "value": value,
+           "answer_kind": kind, "locator": {"anchor": anchor}}
+    row.update(extra)
+    return row
+
+
+# ------------------------------------------- an ambiguity needs its reason
+
+def test_ambiguous_without_a_note_is_flagged():
+    """RESOLUTION 1 puts the arithmetic for a summed dividend in the note.
+
+    A computed value marked ambiguous with no note is unauditable: the reader
+    sees `3.00` anchored to a span reading `$0.75 per common share` and cannot
+    tell a deliberate sum from a misread.
+    """
+    rows = [label("DGX", "2024-12-31", "dividends_declared_per_share", "3.00",
+                  "quarterly cash dividend of $0.75 per common share",
+                  ambiguous=True, note="")]
+    assert unexplained_ambiguities(rows) == [("DGX", "2024-12-31",
+                                              "dividends_declared_per_share")]
+
+
+def test_ambiguous_with_a_note_is_accepted():
+    rows = [label("DGX", "2024-12-31", "dividends_declared_per_share", "3.00",
+                  "quarterly cash dividend of $0.75 per common share",
+                  ambiguous=True, note="4 quarters x $0.75 stated in Item 5")]
+    assert unexplained_ambiguities(rows) == []
+
+
+def test_a_note_is_only_required_when_ambiguous_is_set():
+    """Most labels are unambiguous and owe no explanation."""
+    rows = [label("XYZ", "2024-12-31", "total_assets", "1", "Total assets 1")]
+    assert unexplained_ambiguities(rows) == []
+
+
+def test_whitespace_is_not_a_note():
+    rows = [label("XYZ", "2024-12-31", "total_assets", "1", "Total assets 1",
+                  ambiguous=True, note="   ")]
+    assert len(unexplained_ambiguities(rows)) == 1
 
 
 # ------------------------------------------- the anchor must fit the field

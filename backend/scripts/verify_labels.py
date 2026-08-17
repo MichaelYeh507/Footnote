@@ -36,7 +36,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import corpus_paths  # noqa: E402
 
 from evaluation.labeling import (  # noqa: E402
-    QUEUE_FIELDS, anchor_supports_field, carried_over_pairs, validate_label,
+    QUEUE_FIELDS, anchor_supports_field, carried_over_pairs,
+    unexplained_ambiguities, validate_label,
 )
 from services.html_parser import extract_text_from_html  # noqa: E402
 
@@ -119,6 +120,11 @@ def main() -> int:
         warnings.append(
             f"CARRY-OVER {ticker} {field}: both fiscal years hold the same "
             f"value AND the same anchor text")
+
+    for ticker, period, field in unexplained_ambiguities(rows):
+        warnings.append(
+            f"NO-REASON  {ticker} {period} {field}: marked ambiguous with no "
+            f"note. RESOLUTION 1 puts the arithmetic there")
 
     # coverage
     by_filing = collections.defaultdict(set)

@@ -178,6 +178,24 @@ def carried_over_pairs(rows: list[dict]) -> list[tuple[str, str]]:
     return sorted(flagged)
 
 
+def unexplained_ambiguities(rows: list[dict]) -> list[tuple[str, str, str]]:
+    """(ticker, period, field) marked `ambiguous` with no note saying why.
+
+    RESOLUTION 1 (2026-08-17) puts the arithmetic for a summed dividend in the
+    note, so an ambiguous label with an empty note is unauditable: a reader sees
+    `3.00` anchored to a span reading `$0.75 per common share` and cannot tell a
+    deliberate sum from a misread.
+
+    §5 says ambiguous instances are reported both included and excluded. That
+    only helps a reader who can see what the ambiguity was.
+    """
+    return sorted(
+        (row.get("ticker", ""), row.get("period", ""), row.get("field", ""))
+        for row in rows
+        if row.get("ambiguous") and not (row.get("note") or "").strip()
+    )
+
+
 def drop_labels(rows: list[dict], ticker: str, field: str | None = None,
                 period: str | None = None) -> tuple[list[dict], list[dict]]:
     """Split rows into (kept, removed) for a targeted redo.
