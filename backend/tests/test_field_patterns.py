@@ -115,6 +115,22 @@ def test_dividend_pattern_ignores_par_value():
     assert matches("dividends_declared_per_share", "$0.4975 per share")
 
 
+def test_dividend_pattern_ignores_earnings_per_share():
+    """`per diluted share` is earnings, never a dividend.
+
+    Measured on DGX FY2024: 11 of 21 dividend highlights were EPS figures from
+    the MD&A, which pushed the four real per-share dividend rates into a crowd.
+    Burying the candidates is the same failure as showing none.
+    """
+    for text in ("$0.84 per diluted share", "$0.42 per diluted share",
+                 "$1.10 per basic share", "$2.00 per diluted common share"):
+        assert not matches("dividends_declared_per_share", text), text
+    # The real forms must survive the exclusion.
+    for text in ("$0.75 per common share", "$0.80 per share",
+                 "$0.4975 per share"):
+        assert matches("dividends_declared_per_share", text), text
+
+
 def test_revenue_pattern_ignores_deferred_and_segment_language():
     for text in ("Deferred revenue", "Cost of revenue"):
         assert not matches("revenue_most_recent_fy", text), text

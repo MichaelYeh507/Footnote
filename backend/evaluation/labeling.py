@@ -84,7 +84,11 @@ FIELD_PATTERNS = {
         # `par value $0.01 per share` is excluded: it is never a dividend, and
         # it appears on every cover page and throughout any merger description
         # -- 5 of 12 hits on CHTR FY2024 before this exclusion.
-        r"(?<!par value )(?<!par value of )\$\s?\d+(?:\.\d+)?\s*per\s+(?:\w+\s+){0,3}(?:share|unit)",
+        # `per diluted share` and `per basic share` are earnings, never
+        # dividends -- 11 of 21 hits on DGX FY2024 before this lookahead, on the
+        # field where a buried candidate costs the most.
+        r"(?<!par value )(?<!par value of )\$\s?\d+(?:\.\d+)?\s*per\s+"
+        r"(?!diluted\b|basic\b)(?:\w+\s+){0,3}(?:share|unit)",
         # The sentences that justify `stated_none` for a non-payer.
         r"(?:never|not|no)\s+(?:declared|paid)[^.\n]{0,40}dividends?",
         r"no\s+dividends?[^.\n]{0,30}(?:declared|paid)",
