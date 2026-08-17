@@ -35,7 +35,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import corpus_paths  # noqa: E402
 
-from evaluation.labeling import QUEUE_FIELDS, validate_label  # noqa: E402
+from evaluation.labeling import (  # noqa: E402
+    QUEUE_FIELDS, anchor_supports_field, carried_over_pairs, validate_label,
+)
 from services.html_parser import extract_text_from_html  # noqa: E402
 
 
@@ -101,6 +103,23 @@ def main() -> int:
                 f"ANCHOR    {row['ticker']} {row['period']} {row['field']}: "
                 f"not found in this filing -- {anchor[:60]!r}")
 
+    # Warnings, not problems: neither is proof of an error, and a check that
+    # cries wolf sends the labeler back over work that was already right.
+    warnings: list[str] = []
+
+    for row in rows:
+        anchor = (row.get("locator") or {}).get("anchor", "")
+        if not anchor_supports_field(row["field"], row.get("answer_kind", ""), anchor):
+            warnings.append(
+                f"ANCHOR-FIT {row['ticker']} {row['period']} {row['field']}: "
+                f"anchor says nothing about this field -- "
+                f"{' '.join(anchor.split())[:60]!r}")
+
+    for ticker, field in carried_over_pairs(rows):
+        warnings.append(
+            f"CARRY-OVER {ticker} {field}: both fiscal years hold the same "
+            f"value AND the same anchor text")
+
     # coverage
     by_filing = collections.defaultdict(set)
     for row in rows:
@@ -114,6 +133,12 @@ def main() -> int:
         print(f"  {ticker:<6} {period}  {len(fields)}/9  {state}")
 
     print()
+    if warnings:
+        print(f"{len(warnings)} WARNING(S) -- worth a second look, not failures:")
+        for warning in warnings:
+            print(f"  {warning}")
+        print()
+
     if problems:
         print(f"{len(problems)} PROBLEM(S):", file=sys.stderr)
         for problem in problems:

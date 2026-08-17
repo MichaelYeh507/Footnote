@@ -101,6 +101,96 @@ FIELD_PATTERNS = {
 }
 
 
+# A word that must appear in the anchor for the label to be evidence for THIS
+# field. Only fields where a keyword is genuinely obligatory get a rule: a check
+# that cries wolf sends the labeler back over work that was already right, which
+# is the expensive failure here. `ceo_name` and `company_name` are names with no
+# obligatory neighbouring word, so they have none.
+#
+# Written 2026-08-17 after `goodwill_impairment` was labeled `6085` from the
+# anchor `Total goodwill $ 6,085` on both CTSH filings -- the carrying balance,
+# which the field guidance names by name as not an impairment. Anchor-existence
+# checking passed it: the text is real and in the right filing.
+ANCHOR_MUST_MENTION = {
+    "goodwill_impairment": ("impair",),
+    "dividends_declared_per_share": ("dividend", "distribution"),
+    "total_assets": ("total asset", "assets"),
+    "revenue_most_recent_fy": ("revenue", "sales"),
+    "employees": ("employ", "human capital", "full-time", "headcount"),
+}
+
+# Fields that SHOULD read the same in both of an issuer's fiscal years. Flagging
+# them as carry-over would produce two guaranteed false alarms per issuer.
+STABLE_ACROSS_YEARS = ("ticker", "company_name")
+
+
+def anchor_supports_field(field: str, answer_kind: str, anchor: str) -> bool:
+    """Does this anchor say anything about this field at all?
+
+    Not a correctness check -- the value itself is the labeler's judgment and no
+    script can second-guess it. This asks only whether the cited text is
+    evidence for the right quantity.
+
+    `not_addressed` is exempt: it records searched terms rather than an anchor.
+    """
+    if answer_kind == "not_addressed":
+        return True
+    required = ANCHOR_MUST_MENTION.get(field)
+    if not required:
+        return True
+    lowered = re.sub(r"\s+", " ", anchor or "").lower()
+    return any(word in lowered for word in required)
+
+
+def carried_over_pairs(rows: list[dict]) -> list[tuple[str, str]]:
+    """(ticker, field) where both years hold the same value AND the same anchor.
+
+    The counterweight to `prior_hint`. Labeling an issuer's two years back to
+    back is a speed decision that protocol rule 3 pairs with a named risk, and
+    starting the second year on the first year's row raises that risk on
+    purpose. This is what makes the risk visible afterwards.
+
+    Both conditions are required. Values legitimately repeat -- a company can
+    report identical headcount two years running. What does not repeat is the
+    identical sentence with identical spacing, because the two filings are
+    different documents.
+    """
+    seen: dict[tuple[str, str], list[dict]] = {}
+    for row in rows:
+        if row.get("field") in STABLE_ACROSS_YEARS:
+            continue
+        if row.get("answer_kind") != "value":
+            continue
+        seen.setdefault((row.get("ticker", ""), row.get("field", "")), []).append(row)
+
+    flagged = []
+    for (ticker, field), group in seen.items():
+        if len({r.get("period") for r in group}) < 2:
+            continue
+        values = {str(r.get("value")) for r in group}
+        anchors = {(r.get("locator") or {}).get("anchor", "") for r in group}
+        if len(values) == 1 and len(anchors) == 1:
+            flagged.append((ticker, field))
+    return sorted(flagged)
+
+
+def drop_labels(rows: list[dict], ticker: str, field: str | None = None,
+                period: str | None = None) -> tuple[list[dict], list[dict]]:
+    """Split rows into (kept, removed) for a targeted redo.
+
+    `undo` pops the most recent label only, which is the wrong tool once a
+    defect is noticed several filings later. Returns both halves rather than
+    mutating, so the caller writes a backup before anything is lost.
+    """
+    kept, removed = [], []
+    for row in rows:
+        match = (row.get("ticker") == ticker
+                 and (field is None or row.get("field") == field)
+                 and (period is None or row.get("period") == period))
+        (removed if match else kept).append(row)
+    return kept, removed
+
+
 def prior_anchor_key(anchor: str | None) -> str:
     """An anchor reduced to the part that repeats across an issuer's two years.
 
