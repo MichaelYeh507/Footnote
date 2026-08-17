@@ -40,8 +40,15 @@ backend/corpus/filings/
 backend/corpus/calibration/
 # Model output for the eval corpus. Gitignored because it must not be read
 # before labeling is complete, and because it is derived from the filings.
-backend/corpus/predictions.jsonl
-backend/corpus/labels.jsonl
+#
+# Globs, not exact paths. `labels.jsonl` as an exact path let the backup
+# relabel.py writes, `labels-before-relabel-<stamp>.jsonl`, sit untracked in the
+# repo -- hand-label data, one `git add -A` away from being committed. Backups
+# now go to corpus_paths.backup_dir(), outside the repo; these globs are the
+# second line of defence, not the first.
+backend/corpus/labels*.jsonl
+backend/corpus/predictions*.jsonl
+backend/corpus/label-backups/
 backend/corpus/*.txt
 backend/corpus/*.htm
 backend/corpus/*.html

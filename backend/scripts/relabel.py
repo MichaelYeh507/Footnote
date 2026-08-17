@@ -26,6 +26,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
+import corpus_paths  # noqa: E402
+
 from evaluation.labeling import drop_labels  # noqa: E402
 
 
@@ -39,6 +41,9 @@ def main() -> int:
                         help="omit to drop both fiscal years")
     parser.add_argument("--labels", type=pathlib.Path,
                         default=pathlib.Path("corpus/labels.jsonl"))
+    parser.add_argument("--backup-dir", type=pathlib.Path,
+                        default=corpus_paths.backup_dir(),
+                        help="outside the repo by default; label data is never committed")
     parser.add_argument("--yes", action="store_true",
                         help="actually write; without it this is a dry run")
     args = parser.parse_args()
@@ -68,7 +73,8 @@ def main() -> int:
         return 0
 
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = args.labels.with_name(f"{args.labels.stem}-before-relabel-{stamp}.jsonl")
+    args.backup_dir.mkdir(parents=True, exist_ok=True)
+    backup = args.backup_dir / f"{args.labels.stem}-before-relabel-{stamp}.jsonl"
     shutil.copy2(args.labels, backup)
 
     args.labels.write_text(

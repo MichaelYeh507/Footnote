@@ -85,6 +85,48 @@ def test_env_var_is_read_at_call_time_not_at_import(monkeypatch, tmp_path):
     assert corpus_paths.filings_dir() != first
 
 
+def test_backup_dir_follows_the_data_root_not_the_repo(monkeypatch, tmp_path):
+    """Label backups belong beside the filings, outside the repo.
+
+    The first `relabel.py` wrote its backup next to `corpus/labels.jsonl`, and
+    `.gitignore` names that file as an exact path -- so the backup landed
+    untracked *inside* the repo. Hand-label data, one `git add -A` from being
+    committed, against a standing rule that says never.
+
+    The data root is spelled with `tmp_path` rather than a literal drive path:
+    test_no_machine_local_paths.py forbids drive-absolute strings in committed
+    source, and it failed the first draft of this test for exactly that.
+    """
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "data" / "filings"))
+    assert corpus_paths.backup_dir() == tmp_path / "data" / "label-backups"
+
+
+def test_backup_dir_can_be_overridden(monkeypatch, tmp_path):
+    monkeypatch.setenv("RAG_BACKUP_DIR", str(tmp_path / "b"))
+    assert corpus_paths.backup_dir() == tmp_path / "b"
+
+
+def test_gitignore_covers_label_backups_by_glob():
+    """An exact-path ignore rule does not cover a timestamped sibling.
+
+    Checked by matching realistic filenames against the patterns rather than
+    grepping for a literal line, so reformatting `.gitignore` cannot make this
+    pass while the protection is gone.
+    """
+    import fnmatch
+
+    gitignore = BACKEND.parent / ".gitignore"
+    patterns = [line.strip() for line in
+                gitignore.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.lstrip().startswith("#")]
+
+    for candidate in ("backend/corpus/labels-before-relabel-20260817-191821.jsonl",
+                      "backend/corpus/labels.jsonl",
+                      "backend/corpus/predictions-old.jsonl"):
+        assert any(fnmatch.fnmatch(candidate, p) for p in patterns), (
+            f"{candidate} is not covered by any .gitignore pattern")
+
+
 READERS = (
     "scripts/label_server.py",
     "scripts/label_filings.py",

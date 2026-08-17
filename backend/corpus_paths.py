@@ -52,3 +52,23 @@ def filings_dir() -> pathlib.Path:
 def calibration_dir() -> pathlib.Path:
     """The 8 dev-set filings the extraction prompt was written against."""
     return _resolve("RAG_CALIBRATION_DIR", DEFAULT_CALIBRATION)
+
+
+def backup_dir() -> pathlib.Path:
+    """Where copies of the hand labels go before anything rewrites them.
+
+    Derived from the filings location rather than being a third variable,
+    because it wants the same answer: the data root beside the repo. With the
+    filings at `<data>/filings`, backups land at `<data>/label-backups`.
+
+    This exists because the first `relabel.py` wrote its backup beside
+    `corpus/labels.jsonl`, inside the repo -- and `.gitignore` names
+    `backend/corpus/labels.jsonl` as an exact path, so
+    `labels-before-relabel-*.jsonl` was not ignored and appeared as untracked.
+    The standing rule is that label data is backed up *outside* the repo.
+    """
+    override = os.environ.get("RAG_BACKUP_DIR", "").strip()
+    if override:
+        path = pathlib.Path(override)
+        return path if path.is_absolute() else BACKEND / path
+    return filings_dir().parent / "label-backups"
