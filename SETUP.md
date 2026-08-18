@@ -88,6 +88,14 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 | `SUPABASE_SERVICE_KEY` | `backend/.env` | Yes | `services/supabase_client.py` |
 | `SUPABASE_ANON_KEY` | `backend/.env` | No — currently unread | — |
 | `NEXT_PUBLIC_API_URL` | `frontend/.env.local` | No — defaults to `http://localhost:8000` | `app/lib/api.ts` |
+| `RAG_FILINGS_DIR` | shell / User scope | No — defaults to `backend/corpus/filings` | `backend/corpus_paths.py` |
+| `RAG_CALIBRATION_DIR` | shell / User scope | No — defaults to `backend/corpus/calibration` | `backend/corpus_paths.py` |
+
+The SEC corpus itself is not committed (only its manifest is). Every corpus reader — the
+fetch scripts, the labeling app, the label checkers — resolves the filings directory through
+`backend/corpus_paths.py`: set the two `RAG_*` variables to keep the data outside the repo,
+or place the filings at the repo-relative defaults. `scripts/fetch_filings.py` reproduces the
+corpus from the committed manifest into whichever location is configured.
 
 ## Schema notes
 
