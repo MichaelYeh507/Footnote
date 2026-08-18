@@ -51,6 +51,13 @@ DIVIDEND_FORMS = (
     "$0.4975 per share",
     "We have never declared or paid any cash dividends",
     "no dividends were declared",
+    # Captions that stop before the figure. In an iXBRL filing the amount sits
+    # in its own <ix:nonFraction> element, so the caption and the number are
+    # separate text nodes and no pattern spanning them can match. EXR FY2025
+    # states it this way in the equity statement and it was invisible.
+    "Dividends paid on common stock at $",
+    "Dividends declared on common stock at $",
+    "Distributions paid to unitholders",
 )
 
 REVENUE_FORMS = (

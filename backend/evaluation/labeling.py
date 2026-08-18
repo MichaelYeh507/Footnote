@@ -94,7 +94,16 @@ FIELD_PATTERNS = {
         r"no\s+dividends?[^.\n]{0,30}(?:declared|paid)",
         r"dividends?[^.\n]{0,30}(?:have|has|were|was)\s+not\s+(?:been\s+)?(?:declared|paid)",
         r"distributions?\s+declared\s+per",
-        r"dividend\s+(?:policy|yield)"),
+        r"dividend\s+(?:policy|yield)",
+        # Captions that stop before the figure. In an iXBRL filing the number
+        # lives inside its own <ix:nonFraction> element, so the caption and the
+        # amount are different text nodes and nothing that spans them can
+        # match. EXR states it as `Dividends paid on common stock at $<fact>
+        # per share` in the equity statement, which was invisible to every
+        # pattern above for exactly that reason.
+        r"dividends?\s+(?:paid|declared)\s+on\s+(?:common|ordinary)\s+stock",
+        r"dividends?\s+(?:paid|declared)[^.\n]{0,40}\bat\s*\$",
+        r"distributions?\s+(?:paid|declared)\s+(?:on|to|per)\b"),
     "goodwill_impairment": (
         r"goodwill impairment", r"impairment of goodwill",
         r"no (?:goodwill )?impairment", r"impairment charge",
