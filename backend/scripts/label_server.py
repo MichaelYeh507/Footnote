@@ -41,8 +41,8 @@ from evaluation.label_view import (  # noqa: E402
     FIELD_GUIDANCE, highlight_all, sanitize_filing_html,
 )
 from evaluation.labeling import (  # noqa: E402
-    ANSWER_KINDS, build_queue, completed_keys, label_record, prior_hint,
-    validate_label,
+    ANSWER_KINDS, QUEUE_FIELDS, build_queue, completed_keys, label_record,
+    prior_hint, validate_label,
 )
 from evaluation.xbrl import facts_named, parse_facts  # noqa: E402
 
@@ -669,7 +669,34 @@ load();
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--skip-field", action="append", default=[],
+                        choices=sorted(QUEUE_FIELDS), metavar="FIELD",
+                        help="omit a field from the queue; repeatable. Defers "
+                             "it rather than dropping it -- the instance stays "
+                             "unlabeled and the denominator is unchanged")
+    parser.add_argument("--only-field", action="append", default=[],
+                        choices=sorted(QUEUE_FIELDS), metavar="FIELD",
+                        help="serve only these fields, for a focused pass over "
+                             "one field across every filing")
     args = parser.parse_args()
+
+    # Filters the QUEUE, never the corpus. A deferred instance stays unlabeled
+    # and the denominator is untouched -- 351 either way. Both fiscal years of
+    # an issuer remain consecutive within whatever fields are served, so
+    # protocol rule 3's intent survives; note that a single-field pass puts an
+    # issuer's two years directly adjacent, which raises the carry-over risk
+    # rule 3 names. The CARRY-OVER check in verify_labels.py is the answer to
+    # that, and it is worth running after such a pass.
+    global _queue
+    if args.only_field:
+        _queue = [i for i in _queue if i["field"] in set(args.only_field)]
+    if args.skip_field:
+        _queue = [i for i in _queue if i["field"] not in set(args.skip_field)]
+    if args.only_field or args.skip_field:
+        served = sorted({i["field"] for i in _queue})
+        print(f"queue filtered to {len(_queue)} instances across "
+              f"{len(served)} field(s): {', '.join(served)}", file=sys.stderr)
+
     print(f"labeling app: http://127.0.0.1:{args.port}", file=sys.stderr)
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
     return 0
