@@ -132,6 +132,48 @@ def test_a_sum_that_does_not_divide_evenly_is_not_claimed_as_one():
     assert code != "OK-SUM"
 
 
+DVN_QUARTERS = [
+    fact("0.44", {"start": "2024-01-01", "end": "2024-03-31"}),
+    fact("0.35", {"start": "2024-04-01", "end": "2024-06-30"}),
+    fact("0.44", {"start": "2024-07-01", "end": "2024-09-30"}),
+    fact("0.22", {"start": "2024-10-01", "end": "2024-12-31"}),
+]
+
+
+def test_quarters_that_differ_are_summed():
+    """Devon's fixed-plus-variable dividend changes every quarter.
+
+    No single rate times four can match, so the four stated amounts are added.
+    RESOLUTION 1 says "sum the ones the filing states", which covers a varying
+    rate exactly as it covers a constant one.
+    """
+    code, detail = audit_verdict(label("1.45"), DVN_QUARTERS, "2024-12-31")
+    assert code == "OK-SUM"
+    assert "4 stated quarterly" in detail
+
+
+def test_a_quarter_tagged_twice_is_counted_once():
+    """The same quarter appears in the MD&A and again in the note."""
+    doubled = DVN_QUARTERS + list(DVN_QUARTERS)
+    code, _ = audit_verdict(label("1.45"), doubled, "2024-12-31")
+    assert code == "OK-SUM"
+
+
+def test_a_single_quarter_is_never_read_as_a_year():
+    """One quarterly amount labelled as the annual figure must still flag."""
+    code, _ = audit_verdict(label("0.44"), DVN_QUARTERS, "2024-12-31")
+    assert code != "OK-SUM"
+
+
+def test_next_years_announced_rate_is_not_summed_in():
+    """A subsequent-event quarter carries an axis and is excluded."""
+    quarters = DVN_QUARTERS + [
+        fact("0.24", {"start": "2025-01-01", "end": "2025-03-31"},
+             dims=["SubsequentEventTypeAxis"])]
+    code, _ = audit_verdict(label("1.45"), quarters, "2024-12-31")
+    assert code == "OK-SUM"
+
+
 def test_a_value_matching_nothing_is_flagged_with_what_was_tagged():
     code, detail = audit_verdict(label("0.01"), [fact("6.48", FY)], "2024-12-31")
     assert code == "DIFFERS"

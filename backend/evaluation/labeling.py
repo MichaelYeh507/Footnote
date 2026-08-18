@@ -102,6 +102,13 @@ FIELD_PATTERNS = {
         # per share` in the equity statement, which was invisible to every
         # pattern above for exactly that reason.
         r"dividends?\s+(?:paid|declared)\s+on\s+(?:common|ordinary)\s+stock",
+        # The note heading and its opening sentence. Devon's dividend table has
+        # no caption containing the word at all -- the column header is just
+        # `Per Share` -- so the only way into that table is the paragraph above
+        # it: "Devon pays a quarterly dividend which can be comprised of a
+        # fixed dividend and a variable dividend."
+        r"\bquarterly\s+(?:cash\s+)?dividends?\b",
+        r"\b(?:fixed|variable)\s+dividends?\b",
         r"dividends?\s+(?:paid|declared)[^.\n]{0,40}\bat\s*\$",
         r"distributions?\s+(?:paid|declared)\s+(?:on|to|per)\b"),
     "goodwill_impairment": (

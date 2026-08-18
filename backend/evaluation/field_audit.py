@@ -282,11 +282,21 @@ def audit_verdict(label: dict | None, facts: list[dict], period_end: str,
             return "OK", ""
 
     if spec.get("sum_quarters"):
-        for fact in facts:
-            if (fact.get("value") and not fact.get("dims")
-                    and is_quarter_within(fact, period_end)
-                    and close(value, fact["value"] * 4)):
+        quarters = [f for f in facts
+                    if f.get("value") is not None and not f.get("dims")
+                    and is_quarter_within(f, period_end)]
+        for fact in quarters:
+            if fact["value"] and close(value, fact["value"] * 4):
                 return "OK-SUM", f"4 x {fact['text']} stated for a quarter"
+        # A payer whose rate varies quarter to quarter states four different
+        # amounts, so no single figure times four will match. Devon's
+        # fixed-plus-variable dividend is the case: 0.44, 0.35, 0.44, 0.22
+        # across FY2024. Deduplicated by period, because the same quarter is
+        # often tagged in both the MD&A and the note.
+        distinct = {(f["start"], f["end"]): f["value"] for f in quarters}
+        if len(distinct) > 1 and close(value, sum(distinct.values())):
+            return "OK-SUM", (f"sum of {len(distinct)} stated quarterly "
+                              f"declarations")
 
     from evaluation.xbrl import period_label
 
