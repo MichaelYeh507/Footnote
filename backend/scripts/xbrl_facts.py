@@ -63,6 +63,19 @@ FIELD_TAGS = {
     ),
 }
 
+# Concepts that sit next to the field's own tags and are routinely mistaken for
+# them. Listed separately and labelled NOT, because the error this prevents has
+# already happened twice in this corpus: `goodwill_impairment` was labelled from
+# `Total goodwill $ 6,085` (a carrying balance), and a "total impairment" line
+# -- almost always `us-gaap:AssetImpairmentCharges`, a sum across asset types --
+# reads like the answer and is not.
+FIELD_NEAR_MISS = {
+    "goodwill_impairment": r"impair|goodwill",
+    "dividends_declared_per_share": r"dividend|distribution",
+    "total_assets": r"^us-gaap:Assets",
+    "revenue_most_recent_fy": r"revenue|sales",
+}
+
 _TAGGED = re.compile(
     r"<ix:(?:nonFraction|nonNumeric)([^>]*)>(.*?)</ix:(?:nonFraction|nonNumeric)>",
     re.I | re.S)
@@ -161,6 +174,9 @@ def main() -> int:
         print("  That is NOT evidence the filing omits the item -- filers tag")
         print("  inconsistently, and a value stated only in prose is untagged.")
         print("  Read the filing before recording an absence.")
+        # The most useful moment for the neighbours: nothing matched, so
+        # whatever the labeler is looking at on screen is one of these.
+        _print_near_misses(raw, args.field)
         return 0
 
     for fact in facts:
@@ -176,7 +192,36 @@ def main() -> int:
     print("\n  Pick the period under label yourself. A comparative column and a")
     print("  subsequent-event declaration are both tagged the same way, and the")
     print("  anchor still has to come from text you selected in the filing.")
+
+    _print_near_misses(raw, args.field)
     return 0
+
+
+def _print_near_misses(raw: str, field: str) -> None:
+    """Neighbouring concepts, listed so they can be ruled out rather than hit.
+
+    Showing only the field's own tags leaves the labeler to discover the
+    lookalikes by reading, which is where both goodwill errors in this corpus
+    came from. Names and periods only, no values: this is for deciding what a
+    line IS, not for reading a figure off a screen.
+    """
+    pattern = FIELD_NEAR_MISS.get(field)
+    if not pattern:
+        return
+    own = {t.lower() for t in FIELD_TAGS[field]}
+    found: dict[str, int] = {}
+    for match in _TAGGED.finditer(raw):
+        name = attr(match.group(1), "name")
+        if not name or name.lower() in own:
+            continue
+        if re.search(pattern, name.split(":")[-1], re.I) or re.search(pattern, name, re.I):
+            found[name] = found.get(name, 0) + 1
+    if not found:
+        return
+    print(f"\n  NOT {field} -- neighbouring concepts tagged in this filing.")
+    print("  Any line reported under one of these is a different quantity:\n")
+    for name, count in sorted(found.items()):
+        print(f"    {name}  ({count}x)")
 
 
 if __name__ == "__main__":
