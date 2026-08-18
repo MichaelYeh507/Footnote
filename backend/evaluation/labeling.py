@@ -194,6 +194,36 @@ def carried_over_pairs(rows: list[dict]) -> list[tuple[str, str]]:
     return sorted(flagged)
 
 
+# A personal name in this corpus runs two or three tokens: `Jim Fitterling`,
+# `Christopher L. Winfrey`, `D.G. Macpherson`, `Ravi Kumar S`. Four or more is
+# usually two people, because a signature table puts officers in adjacent cells
+# and a drag-selection crosses the boundary: GWW FY2024 was labeled
+# `D.G. Macpherson Rodney C`, the CEO plus the start of the Chairman's name.
+#
+# That defect is invisible everywhere else. `ceo_name` is the only field with no
+# XBRL concept, so the tag audit reports NO-CONCEPT and can never check it, and
+# the anchor genuinely contains the text. It also scores badly rather than
+# obviously: the matcher reads the last token as the surname, so it compares
+# `C` against `Macpherson` and comes out a plain miss.
+#
+# A legitimate four-token name exists -- `James P. Gorman Jr.` -- so this warns
+# and never rejects.
+MAX_NAME_TOKENS = 3
+
+
+def overlong_names(rows: list[dict]) -> list[tuple[str, str, int]]:
+    """(ticker, period, token count) for `ceo_name` values that look like two."""
+    flagged = []
+    for row in rows:
+        if row.get("field") != "ceo_name" or row.get("answer_kind") != "value":
+            continue
+        tokens = str(row.get("value") or "").split()
+        if len(tokens) > MAX_NAME_TOKENS:
+            flagged.append((row.get("ticker", ""), row.get("period", ""),
+                            len(tokens)))
+    return sorted(flagged)
+
+
 def unexplained_ambiguities(rows: list[dict]) -> list[tuple[str, str, str]]:
     """(ticker, period, field) marked `ambiguous` with no note saying why.
 

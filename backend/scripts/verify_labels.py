@@ -36,7 +36,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import corpus_paths  # noqa: E402
 
 from evaluation.labeling import (  # noqa: E402
-    QUEUE_FIELDS, anchor_supports_field, carried_over_pairs,
+    QUEUE_FIELDS, anchor_supports_field, carried_over_pairs, overlong_names,
     unexplained_ambiguities, validate_label,
 )
 from services.html_parser import extract_text_from_html  # noqa: E402
@@ -120,6 +120,12 @@ def main() -> int:
         warnings.append(
             f"CARRY-OVER {ticker} {field}: both fiscal years hold the same "
             f"value AND the same anchor text")
+
+    for ticker, period, count in overlong_names(rows):
+        warnings.append(
+            f"NAME-SHAPE {ticker} {period} ceo_name: {count} tokens. A "
+            f"signature table puts officers in adjacent cells and a selection "
+            f"can cross the boundary")
 
     for ticker, period, field in unexplained_ambiguities(rows):
         warnings.append(

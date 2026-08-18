@@ -31,7 +31,7 @@ BACKEND = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
 from evaluation.labeling import (  # noqa: E402
-    anchor_supports_field, carried_over_pairs, drop_labels,
+    anchor_supports_field, carried_over_pairs, drop_labels, overlong_names,
     unexplained_ambiguities,
 )
 
@@ -187,6 +187,37 @@ def test_absent_kinds_are_exempt():
 def test_one_year_only_is_not_flagged():
     rows = [label("XYZ", "2024-12-31", "total_assets", "100", "Total assets 100")]
     assert carried_over_pairs(rows) == []
+
+
+# ------------------------------------------ two officers in one name field
+
+def test_the_real_gww_defect_is_flagged():
+    """`D.G. Macpherson Rodney C` -- the CEO plus the start of the Chairman."""
+    rows = [label("GWW", "2024-12-31", "ceo_name", "D.G. Macpherson Rodney C",
+                  "D.G. Macpherson Rodney C. Adkins Chairman of the Board")]
+    assert overlong_names(rows) == [("GWW", "2024-12-31", 4)]
+
+
+@pytest.mark.parametrize("name", [
+    "Jim Fitterling", "D.G. Macpherson", "Christopher L. Winfrey",
+    "Ravi Kumar S", "Joseph D. Margolis", "Peter Konieczny",
+])
+def test_every_real_name_in_the_corpus_passes(name):
+    """Drawn from the labels already written, so the threshold is grounded."""
+    rows = [label("X", "2024-12-31", "ceo_name", name, "anchor")]
+    assert overlong_names(rows) == []
+
+
+def test_only_ceo_name_is_checked():
+    """A long company name is normal and must not be flagged."""
+    rows = [label("X", "2024-12-31", "company_name",
+                  "Charter Communications Holdings Capital Corporation", "a")]
+    assert overlong_names(rows) == []
+
+
+def test_absent_kinds_have_no_name_to_check():
+    rows = [label("X", "2024-12-31", "ceo_name", None, "a", kind="not_addressed")]
+    assert overlong_names(rows) == []
 
 
 # ------------------------------------------------------ targeted redo
