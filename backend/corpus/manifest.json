@@ -19,16 +19,9 @@
     ]
   },
   "defects": {
-    "missing_financial_statements": [],
-    "item_8_by_reference": [
-      "GWW 2025-12-31",
-      "GWW 2024-12-31",
-      "LLY 2025-12-31",
-      "LLY 2024-12-31",
-      "WYNN 2025-12-31",
-      "WYNN 2024-12-31",
-      "PCG 2025-12-31",
-      "PCG 2024-12-31"
+    "missing_financial_statements": [
+      "PGR 2025-12-31",
+      "PGR 2024-12-31"
     ]
   },
   "filings": [
@@ -49,8 +42,7 @@
       "fits_context_window": true,
       "pct_of_window": 39.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "GWW",
@@ -69,8 +61,7 @@
       "fits_context_window": true,
       "pct_of_window": 38.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "QCOM",
@@ -89,8 +80,7 @@
       "fits_context_window": true,
       "pct_of_window": 59.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "QCOM",
@@ -109,8 +99,7 @@
       "fits_context_window": true,
       "pct_of_window": 61.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "LLY",
@@ -129,8 +118,7 @@
       "fits_context_window": true,
       "pct_of_window": 57.4,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "LLY",
@@ -149,8 +137,7 @@
       "fits_context_window": true,
       "pct_of_window": 68.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "PGR",
@@ -168,9 +155,8 @@
       "tokens": 38451,
       "fits_context_window": true,
       "pct_of_window": 30.0,
-      "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_balance_sheet": false,
+      "has_income_statement": false
     },
     {
       "ticker": "PGR",
@@ -188,9 +174,8 @@
       "tokens": 39108,
       "fits_context_window": true,
       "pct_of_window": 30.6,
-      "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_balance_sheet": false,
+      "has_income_statement": false
     },
     {
       "ticker": "CTSH",
@@ -209,8 +194,7 @@
       "fits_context_window": true,
       "pct_of_window": 53.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "CTSH",
@@ -229,8 +213,7 @@
       "fits_context_window": true,
       "pct_of_window": 53.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "WYNN",
@@ -249,8 +232,7 @@
       "fits_context_window": true,
       "pct_of_window": 74.8,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "WYNN",
@@ -269,8 +251,7 @@
       "fits_context_window": true,
       "pct_of_window": 77.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "DPZ",
@@ -289,8 +270,7 @@
       "fits_context_window": true,
       "pct_of_window": 61.8,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DPZ",
@@ -309,8 +289,7 @@
       "fits_context_window": true,
       "pct_of_window": 63.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DOW",
@@ -329,8 +308,7 @@
       "fits_context_window": true,
       "pct_of_window": 96.7,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DOW",
@@ -349,8 +327,7 @@
       "fits_context_window": true,
       "pct_of_window": 89.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DGX",
@@ -369,8 +346,7 @@
       "fits_context_window": true,
       "pct_of_window": 72.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DGX",
@@ -389,8 +365,7 @@
       "fits_context_window": true,
       "pct_of_window": 71.6,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "HON",
@@ -409,8 +384,7 @@
       "fits_context_window": true,
       "pct_of_window": 77.7,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "HON",
@@ -429,8 +403,7 @@
       "fits_context_window": true,
       "pct_of_window": 71.7,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "MA",
@@ -449,8 +422,7 @@
       "fits_context_window": true,
       "pct_of_window": 71.7,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "MA",
@@ -469,8 +441,7 @@
       "fits_context_window": true,
       "pct_of_window": 72.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "AMCR",
@@ -489,8 +460,7 @@
       "fits_context_window": true,
       "pct_of_window": 67.6,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "AMCR",
@@ -509,8 +479,7 @@
       "fits_context_window": true,
       "pct_of_window": 59.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "SO",
@@ -529,8 +498,7 @@
       "fits_context_window": false,
       "pct_of_window": 202.2,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "SO",
@@ -549,8 +517,7 @@
       "fits_context_window": false,
       "pct_of_window": 196.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "EXR",
@@ -569,8 +536,7 @@
       "fits_context_window": true,
       "pct_of_window": 53.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "EXR",
@@ -589,8 +555,7 @@
       "fits_context_window": true,
       "pct_of_window": 53.4,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "VICI",
@@ -609,8 +574,7 @@
       "fits_context_window": true,
       "pct_of_window": 83.8,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "VICI",
@@ -629,8 +593,7 @@
       "fits_context_window": true,
       "pct_of_window": 81.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "PG",
@@ -649,8 +612,7 @@
       "fits_context_window": true,
       "pct_of_window": 51.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "PG",
@@ -669,8 +631,7 @@
       "fits_context_window": true,
       "pct_of_window": 50.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "PCG",
@@ -689,8 +650,7 @@
       "fits_context_window": false,
       "pct_of_window": 107.1,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "PCG",
@@ -709,8 +669,7 @@
       "fits_context_window": false,
       "pct_of_window": 119.4,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": true
+      "has_income_statement": true
     },
     {
       "ticker": "KVUE",
@@ -729,8 +688,7 @@
       "fits_context_window": false,
       "pct_of_window": 101.7,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "KVUE",
@@ -749,8 +707,7 @@
       "fits_context_window": true,
       "pct_of_window": 94.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DVN",
@@ -769,8 +726,7 @@
       "fits_context_window": true,
       "pct_of_window": 57.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "DVN",
@@ -789,8 +745,7 @@
       "fits_context_window": true,
       "pct_of_window": 56.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "CHTR",
@@ -809,8 +764,7 @@
       "fits_context_window": true,
       "pct_of_window": 83.6,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "CHTR",
@@ -829,8 +783,7 @@
       "fits_context_window": true,
       "pct_of_window": 78.0,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "APP",
@@ -849,8 +802,7 @@
       "fits_context_window": true,
       "pct_of_window": 60.8,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "APP",
@@ -869,8 +821,7 @@
       "fits_context_window": true,
       "pct_of_window": 72.6,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "MPC",
@@ -889,8 +840,7 @@
       "fits_context_window": true,
       "pct_of_window": 86.5,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     },
     {
       "ticker": "MPC",
@@ -909,8 +859,7 @@
       "fits_context_window": true,
       "pct_of_window": 85.3,
       "has_balance_sheet": true,
-      "has_income_statement": true,
-      "item_8_by_reference": false
+      "has_income_statement": true
     }
   ]
 }

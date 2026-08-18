@@ -88,16 +88,43 @@ def test_every_filing_has_an_integrity_hash(manifest):
         assert row["tokens"] > 0
 
 
-def test_every_filing_contains_its_financial_statements(manifest):
+# The corpus's one known statement-free pair, found after labeling and
+# disclosed in plan §5 (CORPUS DEFECT, 2026-08-18): PGR incorporates its
+# consolidated statements into Item 8 by reference from the Annual Report
+# exhibit, so its primary documents carry only Schedule II parent-company
+# figures. The owner relabeled the four affected instances `not_addressed`
+# the same day.
+DISCLOSED_STATEMENT_FREE = {"PGR 2025-12-31", "PGR 2024-12-31"}
+
+
+def test_no_undisclosed_filing_is_missing_its_financial_statements(manifest):
     """Guards Item 8 incorporated by reference: the primary document is short
     enough to pass any size check while total_assets and revenue are absent.
-    The model returns null and it scores as a correct abstention."""
-    defective = [
+    A filing appearing here that is not in the disclosed set means the corpus
+    changed or the detector regressed; a disclosed one missing means the
+    defect was papered over rather than decided."""
+    defective = {
         f"{r['ticker']} {r['period']}"
         for r in manifest["filings"]
         if not (r["has_balance_sheet"] and r["has_income_statement"])
-    ]
-    assert not defective, f"financial statements missing from: {defective}"
+    }
+    assert defective == DISCLOSED_STATEMENT_FREE, (
+        f"undisclosed: {sorted(defective - DISCLOSED_STATEMENT_FREE)}, "
+        f"papered over: {sorted(DISCLOSED_STATEMENT_FREE - defective)}")
+    assert set(manifest["defects"]["missing_financial_statements"]) == defective
+
+
+def test_the_retired_by_reference_flag_stays_retired(manifest):
+    """`item_8_by_reference` was wrong in both directions on the committed
+    manifest -- true for eight healthy filings via Item 3 cross-references
+    into Item 8, false for the two defective PGR rows -- and prose cannot
+    decide it (PG prints the same sentence as PGR while containing its
+    statements). Statement presence is decided from the filer's own
+    undimensioned facts; see scripts/fetch_filings.py."""
+    assert "item_8_by_reference" not in manifest["defects"]
+    holdouts = [r["ticker"] for r in manifest["filings"]
+                if "item_8_by_reference" in r]
+    assert not holdouts, f"retired field re-appeared on: {holdouts}"
 
 
 def test_context_window_coverage_is_recorded_and_within_threshold(manifest):

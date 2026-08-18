@@ -21,8 +21,18 @@ Per filing the manifest records:
                   guards the Item-8-incorporated-by-reference case: a filing
                   whose financial statements live in an exhibit is short enough
                   to pass any size check while missing two of the nine fields
-                  entirely. The model would return null and score it as a
-                  correct abstention.
+                  entirely. Decided from the filer's own inline-XBRL facts, not
+                  from statement captions: PGR's primary documents print
+                  "Consolidated Balance Sheets" in their
+                  incorporation-by-reference list and tag every statement
+                  figure ConsolidatedEntitiesAxis=ParentCompanyMember, so the
+                  caption regexes this replaced marked them healthy (plan §5,
+                  CORPUS DEFECT, 2026-08-18). A retired `item_8_by_reference`
+                  caption flag also lived here; it was wrong in both directions
+                  (true for eight healthy filings via Item 3 cross-references,
+                  false for defective PGR) and words cannot decide it -- PG
+                  prints "incorporated by reference in Part II, Item 8" while
+                  physically containing its statements.
 """
 
 import argparse
@@ -40,6 +50,8 @@ from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import corpus_paths  # noqa: E402
+from evaluation.field_audit import FIELD_CONCEPTS, undimensioned  # noqa: E402
+from evaluation.xbrl import facts_named, parse_facts  # noqa: E402
 from services.html_parser import extract_text_from_html  # noqa: E402
 
 UA = "RAG-pipeline-prototype you@example.org"
@@ -61,18 +73,32 @@ CONTEXT_WINDOW = 128_000          # gpt-4o-mini
 OVERFLOW_THRESHOLD = 0.25         # plan §2, pre-registered
 REQUEST_PAUSE = 0.2
 
-BALANCE_SHEET = re.compile(
-    r"consolidated\s+balance\s+sheet|statements?\s+of\s+financial\s+position", re.I)
+# The filer's own tags decide statement presence. Inline XBRL wraps the
+# displayed figures, so a consolidated statement that is physically in the
+# document tags its totals without an axis (`undimensioned` is the same
+# helper the label audit trusts for "the consolidated figure for the primary
+# registrant"). Reusing the audit's revenue concept list keeps fetch and
+# audit agreeing on what counts as the top line.
+BALANCE_SHEET_CONCEPTS = FIELD_CONCEPTS["total_assets"]["concepts"]
+INCOME_STATEMENT_CONCEPTS = FIELD_CONCEPTS["revenue_most_recent_fy"]["concepts"]
 
-# Qualifiers appear between "of" and the noun far more often than not:
-# "Statements of Comprehensive Income", "Statements of Comprehensive Earnings".
-# Allowing up to two intervening words covers those without matching
-# "Statements of Changes in Shareholders' Equity" or "of Cash Flows".
-INCOME_STATEMENT = re.compile(
-    r"consolidated\s+statements?\s+of\s+(\w+\s+){0,2}"
-    r"(operations|income|earnings|loss)", re.I)
-INCORPORATED_BY_REFERENCE = re.compile(
-    r"item\s*8[^.]{0,200}incorporated\s+(herein\s+)?by\s+reference", re.I)
+
+def statement_flags(raw: str) -> dict:
+    """Are the consolidated financial statements physically in this document?
+
+    Validated over all 44 local documents on 2026-08-18: every healthy filing
+    tags at least two undimensioned us-gaap:Assets facts and three
+    undimensioned revenue facts; both PGR documents (statements incorporated
+    by reference into Item 8 from an exhibit) tag zero of each -- their only
+    statement facts carry ConsolidatedEntitiesAxis=ParentCompanyMember.
+    """
+    facts = parse_facts(raw)
+    return {
+        "has_balance_sheet": bool(
+            undimensioned(facts_named(facts, BALANCE_SHEET_CONCEPTS))),
+        "has_income_statement": bool(
+            undimensioned(facts_named(facts, INCOME_STATEMENT_CONCEPTS))),
+    }
 
 
 def fetch(url: str, cache: pathlib.Path) -> bytes:
@@ -96,9 +122,7 @@ def describe(raw: bytes, text: str, encoder) -> dict:
         "tokens": tokens,
         "fits_context_window": tokens < CONTEXT_WINDOW,
         "pct_of_window": round(100 * tokens / CONTEXT_WINDOW, 1),
-        "has_balance_sheet": bool(BALANCE_SHEET.search(text)),
-        "has_income_statement": bool(INCOME_STATEMENT.search(text)),
-        "item_8_by_reference": bool(INCORPORATED_BY_REFERENCE.search(text)),
+        **statement_flags(raw.decode("utf-8", "replace")),
     }
 
 
@@ -149,7 +173,6 @@ def main() -> int:
     over = [r for r in rows if not r["fits_context_window"]]
     missing = [r for r in rows
                if not (r["has_balance_sheet"] and r["has_income_statement"])]
-    by_ref = [r for r in rows if r["item_8_by_reference"]]
     rate = len(over) / len(rows) if rows else 0.0
 
     manifest = {
@@ -169,7 +192,6 @@ def main() -> int:
         "defects": {
             "missing_financial_statements":
                 [f"{r['ticker']} {r['period']}" for r in missing],
-            "item_8_by_reference": [f"{r['ticker']} {r['period']}" for r in by_ref],
         },
         "filings": rows,
     }
