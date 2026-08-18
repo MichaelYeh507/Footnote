@@ -229,13 +229,18 @@ async def save_label(payload: dict):
     return JSONResponse({"ok": True, "audit": _audit_of(record)})
 
 
+# Verdicts where the filing's own tags actually confirmed something. The rest
+# are "no opinion": ceo_name has no concept, and a figure stated only in prose
+# carries no tag at all.
+_CONFIRMED = {"OK", "OK-SUM", "ABSENT-OK"}
+
+
 def _audit_of(record: dict) -> dict:
+    """Verdict for one saved label. Carries a status and never a figure."""
     filing = _by_accession.get(record["accession"])
-    if filing is None:
-        return {}
     spec = FIELD_CONCEPTS.get(record["field"], {})
-    if not spec.get("concepts"):
-        return {}
+    if filing is None or not spec.get("concepts"):
+        return {"status": "unchecked"}
     try:
         facts = facts_named(_facts_for(record["accession"]),
                             spec.get("concepts", ()))
@@ -243,9 +248,13 @@ def _audit_of(record: dict) -> dict:
                                       record["field"])
     except Exception:                                    # noqa: BLE001
         # A parsing failure must never cost a label that was already written.
-        return {}
+        return {"status": "unchecked"}
+
     hint = audit_hint(code)
-    return {"code": code, "hint": hint} if hint else {}
+    if hint:
+        return {"status": "warn", "code": code, "hint": hint}
+    return {"status": "checked" if code in _CONFIRMED else "unchecked",
+            "code": code}
 
 
 def _facts_for(accession: str) -> list[dict]:
@@ -324,8 +333,10 @@ label.row { display:flex; gap:8px; align-items:center; margin-top:8px; font-size
 #anchor { font-family:ui-monospace,Consolas,monospace; font-size:12px;
           background:#161a22; border:1px dashed #3a4152; border-radius:6px;
           padding:8px; min-height:34px; word-break:break-word; }
-#audit { display:none; padding:12px 14px; margin:0; background:#3a1414;
-         border-left:4px solid #f87171; color:#fecaca; font-size:13px; }
+#audit { display:none; padding:12px 14px; margin:0; font-size:13px; }
+#audit.warn { background:#3a1414; border-left:4px solid #f87171; color:#fecaca; }
+#audit.pass { background:#11201a; border-left:4px solid #2f7d5c; color:#8fcbb0;
+              padding:7px 14px; font-size:12px; }
 #audit b { color:#fff1f2; display:block; font-size:14px; margin-bottom:3px; }
 #audit .why { color:#fda4af; }
 .prior { margin-top:8px; background:#12241c; border-left:3px solid #34d399;
@@ -625,11 +636,23 @@ async function save(){
 // answer is X" -- the corrected value still has to come from the filing.
 function showAudit(audit, just){
   const box=document.getElementById('audit');
-  if(!audit || !audit.hint){ box.style.display='none'; return; }
-  box.style.display='';
-  box.innerHTML='<b>⚠ '+audit.code+' — '+just.ticker+' FY'+just.period+' · '
-    +just.field+'</b><span class="why">'+audit.hint
-    +'. The filing was just saved; press <kbd>↶ Undo last label</kbd> to redo it.</span>';
+  box.style.display=''; box.className='';
+  const where=just.ticker+' FY'+just.period+' · '+just.field;
+  if(audit && audit.hint){
+    box.className='warn';
+    box.innerHTML='<b>⚠ '+audit.code+' — '+where+'</b><span class="why">'+audit.hint
+      +'. Press <kbd>↶ Undo last label</kbd> to redo it.</span>';
+    return;
+  }
+  // Shown even when nothing is wrong, so a working check and a broken one do
+  // not look identical. It reveals no more than the banner's absence already
+  // did -- the same single bit -- and it is what tells the labeler the check
+  // ran at all. `not checked` is its own state: ceo_name has no XBRL concept
+  // and many figures are stated only in prose.
+  box.className='pass';
+  box.textContent = (audit && audit.status==='checked')
+    ? '✓ ' + where + ' — nothing in the filing’s tagged facts contradicts it'
+    : '· ' + where + ' — no tagged fact to check against';
 }
 addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT' && e.key!=='Enter') return;
