@@ -10,6 +10,7 @@ Every case below is drawn from a filing in this corpus.
 """
 
 import pathlib
+import re
 import sys
 
 import pytest
@@ -203,3 +204,36 @@ def test_per_share_values_are_not_scaled():
 def test_a_non_numeric_label_never_crashes(junk):
     code, _ = audit_verdict(label(junk), [fact("6.48", FY)], "2024-12-31")
     assert code in {"DIFFERS", "UNVERIFIED"}
+
+
+# ------------------------------------------- what the app is allowed to show
+
+def test_the_in_app_hint_never_carries_a_figure():
+    """The banner sends the labeler back to the filing; it never answers.
+
+    A hint carrying the tagged value would make every instance "type something
+    and let the app correct it", and the labels would be XBRL-derived rather
+    than read -- the LLM-assisted labeling §5 rejects, arriving by side door.
+    """
+    from evaluation.field_audit import audit_hint
+
+    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED"):
+        hint = audit_hint(code)
+        assert hint, code
+        assert not re.search(r"\d", hint), f"{code} hint leaks a digit: {hint!r}"
+
+
+def test_no_hint_is_offered_when_nothing_is_wrong():
+    from evaluation.field_audit import audit_hint
+
+    for code in ("OK", "OK-SUM", "ABSENT-OK", "UNVERIFIED", "NO-CONCEPT",
+                 "MISSING"):
+        assert audit_hint(code) is None, code
+
+
+def test_every_flagged_verdict_has_a_hint():
+    """A verdict the app cannot explain would surface as an empty banner."""
+    from evaluation.field_audit import AUDIT_HINTS
+
+    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED"):
+        assert code in AUDIT_HINTS

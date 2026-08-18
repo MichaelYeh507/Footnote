@@ -75,6 +75,29 @@ MONEY_FIELDS = {"total_assets", "revenue_most_recent_fy", "goodwill_impairment"}
 TOLERANCE = 0.001          # the matching spec's 0.1%, reused deliberately
 
 
+# Shown to the labeler in the app after a label is saved. Deliberately free of
+# any figure: the verdict says "go back and re-read", never "the answer is X".
+#
+# The distinction is the whole reason this can live in the labeling app at all.
+# A banner carrying the tagged value would turn every instance into "type
+# something, let the app correct it", and the labels would become XBRL-derived
+# rather than read -- which is the LLM-assisted labeling §5 rejects, arriving
+# through a side door. A banner carrying only the verdict sends the labeler back
+# to the filing, where the answer still has to come from reading it.
+AUDIT_HINTS = {
+    "PERIOD": "that figure is tagged to a different period in this filing",
+    "DIMS": "that figure is tagged as a segment, subsidiary or scenario "
+            "rather than the consolidated total",
+    "DIFFERS": "the filing tags a different figure for this fiscal year",
+    "ABSENT-BUT-TAGGED": "the filing tags a value for this fiscal year",
+}
+
+
+def audit_hint(code: str) -> str | None:
+    """A value-free prompt to look again, or None when nothing is wrong."""
+    return AUDIT_HINTS.get(code)
+
+
 def _as_float(value) -> float | None:
     if value is None:
         return None

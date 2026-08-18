@@ -34,6 +34,9 @@ from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402
 
 import corpus_paths  # noqa: E402
 
+from evaluation.field_audit import (  # noqa: E402
+    FIELD_CONCEPTS, audit_hint, audit_verdict,
+)
 from evaluation.label_view import (  # noqa: E402
     FIELD_GUIDANCE, highlight_all, sanitize_filing_html,
 )
@@ -41,6 +44,7 @@ from evaluation.labeling import (  # noqa: E402
     ANSWER_KINDS, build_queue, completed_keys, label_record, prior_hint,
     validate_label,
 )
+from evaluation.xbrl import facts_named, parse_facts  # noqa: E402
 
 BACKEND = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST = BACKEND / "corpus" / "manifest.json"
@@ -56,6 +60,9 @@ _html_cache: dict[str, str] = {}
 # accession -> field -> the marked strings, in document order. Same order the
 # client's `hits` array ends up in, because both derive from document order.
 _marks_cache: dict[str, dict[str, list[str]]] = {}
+# Parsed XBRL facts, one filing at a time. Populated on the first audit for a
+# filing rather than during rendering, so loading a document stays fast.
+_facts_cache: dict[str, list[dict]] = {}
 
 _MARK = re.compile(r'<mark[^>]*data-fields="([^"]*)"[^>]*>(.*?)</mark>', re.S)
 
@@ -213,7 +220,45 @@ async def save_label(payload: dict):
     LABELS.parent.mkdir(parents=True, exist_ok=True)
     with LABELS.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record) + "\n")
-    return JSONResponse({"ok": True})
+
+    # Audited only AFTER the label is written, never before. Running it earlier
+    # and showing the result would make this a lookup rather than a reading
+    # task; running it after turns a defect into a prompt to go back, while the
+    # corrected value still has to come from the filing. The payload carries a
+    # verdict and a value-free sentence -- see AUDIT_HINTS.
+    return JSONResponse({"ok": True, "audit": _audit_of(record)})
+
+
+def _audit_of(record: dict) -> dict:
+    filing = _by_accession.get(record["accession"])
+    if filing is None:
+        return {}
+    spec = FIELD_CONCEPTS.get(record["field"], {})
+    if not spec.get("concepts"):
+        return {}
+    try:
+        facts = facts_named(_facts_for(record["accession"]),
+                            spec.get("concepts", ()))
+        code, _detail = audit_verdict(record, facts, filing["period"],
+                                      record["field"])
+    except Exception:                                    # noqa: BLE001
+        # A parsing failure must never cost a label that was already written.
+        return {}
+    hint = audit_hint(code)
+    return {"code": code, "hint": hint} if hint else {}
+
+
+def _facts_for(accession: str) -> list[dict]:
+    """Tagged facts for one filing, parsed once and kept beside its HTML."""
+    if accession not in _facts_cache:
+        filing = _by_accession[accession]
+        document = _document_for(filing)
+        if not document.exists():
+            return []
+        _facts_cache.clear()
+        _facts_cache[accession] = parse_facts(
+            document.read_bytes().decode("utf-8", "replace"))
+    return _facts_cache[accession]
 
 
 @app.post("/api/undo")
@@ -279,6 +324,10 @@ label.row { display:flex; gap:8px; align-items:center; margin-top:8px; font-size
 #anchor { font-family:ui-monospace,Consolas,monospace; font-size:12px;
           background:#161a22; border:1px dashed #3a4152; border-radius:6px;
           padding:8px; min-height:34px; word-break:break-word; }
+#audit { display:none; padding:12px 14px; margin:0; background:#3a1414;
+         border-left:4px solid #f87171; color:#fecaca; font-size:13px; }
+#audit b { color:#fff1f2; display:block; font-size:14px; margin-bottom:3px; }
+#audit .why { color:#fda4af; }
 .prior { margin-top:8px; background:#12241c; border-left:3px solid #34d399;
          padding:8px 10px; font-size:12px; color:#a7f3d0; border-radius:0 4px 4px 0; }
 .prior b { color:#ecfdf5; }
@@ -292,6 +341,7 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
 </style></head><body>
 <div id="doc">loading filing…</div>
 <div id="side">
+  <div id="audit"></div>
   <div class="pad">
     <h2 id="co">…</h2>
     <div class="muted" id="meta"></div>
@@ -565,7 +615,21 @@ async function save(){
   const r=await fetch('/api/label',{method:'POST',headers:{'Content-Type':'application/json'},
                                     body:JSON.stringify(body)});
   if(!r.ok){ err.textContent=(await r.json()).detail; return; }
-  load();
+  const saved=await r.json();
+  const just={ticker:item.ticker,period:item.period,field:item.field};
+  await load();
+  showAudit(saved.audit, just);
+}
+// Shown only after the label is written, and only as a verdict. The server
+// sends no figure, so this can say "go back and look" and cannot say "the
+// answer is X" -- the corrected value still has to come from the filing.
+function showAudit(audit, just){
+  const box=document.getElementById('audit');
+  if(!audit || !audit.hint){ box.style.display='none'; return; }
+  box.style.display='';
+  box.innerHTML='<b>⚠ '+audit.code+' — '+just.ticker+' FY'+just.period+' · '
+    +just.field+'</b><span class="why">'+audit.hint
+    +'. The filing was just saved; press <kbd>↶ Undo last label</kbd> to redo it.</span>';
 }
 addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT' && e.key!=='Enter') return;
