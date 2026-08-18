@@ -342,6 +342,27 @@ def prior_hint(prior: dict | None, marks: list[str],
     return {"index": index, "of": len(marks), "period": prior.get("period", "")}
 
 
+# Fields whose value is a number and can never legitimately be text. The four
+# name- and date-shaped fields are excluded: those are strings by definition.
+NUMERIC_FIELDS = ("employees", "total_assets", "revenue_most_recent_fy",
+                  "dividends_declared_per_share", "goodwill_impairment")
+
+# `0.44 + 0.35 + 0.44 + 0.22` -- digits, dots, plus signs and spaces only. Not
+# an expression evaluator: no names, no operators beyond `+`, nothing that could
+# run. RESOLUTION 1 requires summing stated quarterly declarations, so the sum
+# has to be enterable, and the box previously stored the typed expression as
+# TEXT. A numeric field holding a string can never match a prediction, so both
+# DVN labels would have scored the extractor wrong with nothing to reveal it.
+_SUM_EXPRESSION = re.compile(r"^\s*\d+(?:\.\d+)?(?:\s*\+\s*\d+(?:\.\d+)?)+\s*$")
+
+
+def parse_sum(value) -> float | None:
+    """Total of a `a + b + c` expression, or None if it is not one."""
+    if not isinstance(value, str) or not _SUM_EXPRESSION.match(value):
+        return None
+    return round(sum(float(part) for part in value.split("+")), 10)
+
+
 def build_queue(manifest: dict) -> list[dict]:
     """Every (filing, field) to label, in labeling order.
 
@@ -462,6 +483,27 @@ def validate_label(record: dict) -> dict:
         raise ValueError(
             f"answer_kind 'value' with no value for {record.get('field')!r}: "
             f"type the value, or use stated_none / not_addressed instead")
+
+    # A numeric field holding text can never match a prediction, so it scores
+    # the extractor wrong on that instance and looks like a legitimate miss.
+    # Found on both DVN labels, which held `0.44 + 0.35 + 0.44 + 0.22` verbatim:
+    # RESOLUTION 1 asks the labeler to sum stated quarters, and the box kept the
+    # arithmetic as a string. The sum is now computed rather than rejected --
+    # refusing it would leave the labeler doing mental arithmetic on a field
+    # whose whole difficulty is arithmetic.
+    if kind == "value" and record.get("field") in NUMERIC_FIELDS:
+        summed = parse_sum(value)
+        if summed is not None:
+            record["value"] = value = summed
+        if isinstance(value, str):
+            try:
+                record["value"] = value = float(value.replace(",", "").strip())
+            except ValueError:
+                raise ValueError(
+                    f"{record.get('field')!r} is a numeric field but the value "
+                    f"is text: {value!r}. A string here cannot be compared "
+                    f"numerically, so it would score as a miss with nothing to "
+                    f"show why") from None
 
     if kind in ("value", "stated_none"):
         # Rule 1. Both assert something the filing says, so both must point at it.
