@@ -52,6 +52,9 @@ def main() -> int:
     parser.add_argument("--filings-dir", type=pathlib.Path,
                         default=corpus_paths.filings_dir())
     parser.add_argument("--field", default=None, choices=sorted(QUEUE_FIELDS))
+    parser.add_argument("--skip-field", action="append", default=[],
+                        choices=sorted(QUEUE_FIELDS), metavar="FIELD",
+                        help="exclude a field, mirroring label_server's flag")
     parser.add_argument("--ticker", default=None)
     parser.add_argument("--verbose", action="store_true",
                         help="show every instance, not only those needing eyes")
@@ -69,6 +72,7 @@ def main() -> int:
         filings = [f for f in filings if f["ticker"] == args.ticker.upper()]
     filings.sort(key=lambda f: (f["ticker"], f["period"]))
     fields = [args.field] if args.field else list(QUEUE_FIELDS)
+    fields = [f for f in fields if f not in set(args.skip_field)]
 
     findings, counts = [], collections.Counter()
     for filing in filings:
