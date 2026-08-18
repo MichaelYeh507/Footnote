@@ -324,3 +324,75 @@ def test_a_full_labeling_session_never_opens_the_predictions_file(client, monkey
 
     leaked = [p for p in opened if "prediction" in p.lower()]
     assert not leaked, f"labeling session opened model output: {leaked}"
+
+
+# --- finder panel ----------------------------------------------------------
+#
+# The in-app version of scripts/xbrl_facts.py, added 2026-08-18 at the
+# owner's request. Same contract as the CLI finder: the filer's own tagged
+# facts for the field, every one of them with its resolved period and
+# dimensions, and never a single crowned answer -- picking the period under
+# label stays the labeler's call. Reading the registrant's tags is reading
+# the filing; this panel exists so the read does not require a second
+# terminal. It is not an LLM anything: the plan's §5 records rejecting
+# model help for labeling, and that rejection stands.
+
+def _first_money_item(client):
+    """A queue-independent instance: the first manifest filing, a field with
+    concepts. Endpoint behaviour must not depend on what is left unlabeled."""
+    manifest = json.loads((CORPUS / "manifest.json").read_text(encoding="utf-8"))
+    return manifest["filings"][0]["accession"]
+
+
+def test_facts_endpoint_lists_every_tagged_fact_for_the_field(client):
+    from evaluation.field_audit import FIELD_CONCEPTS
+    from evaluation.xbrl import facts_named, parse_facts
+    import scripts.label_server as server
+
+    accession = _first_money_item(client)
+    response = client.get(f"/api/facts?accession={accession}"
+                          f"&field=dividends_declared_per_share")
+    assert response.status_code == 200
+    body = response.json()
+
+    document = server._document_for(server._by_accession[accession])
+    expected = facts_named(
+        parse_facts(document.read_bytes().decode("utf-8", "replace")),
+        FIELD_CONCEPTS["dividends_declared_per_share"]["concepts"])
+    # The full list, not a selection: a finder that filters is deciding.
+    assert len(body["facts"]) == len(expected)
+    assert len(body["facts"]) > 1, "comparative-year facts must be listed too"
+    for fact in body["facts"]:
+        assert set(fact) >= {"text", "period", "dims", "unit"}
+    assert any(f["dims"] for f in expected) == any(f["dims"] for f in body["facts"])
+
+
+def test_facts_endpoint_never_crowns_an_answer(client):
+    accession = _first_money_item(client)
+    body = client.get(f"/api/facts?accession={accession}"
+                      f"&field=total_assets").json()
+    crowned = {k for k in body if k.lower() in
+               ("answer", "value", "best", "suggested", "suggestion", "pick")}
+    assert not crowned, f"finder response crowns an answer: {crowned}"
+    assert "caveat" in body and "labeler" in body["caveat"].lower()
+
+
+def test_facts_endpoint_for_a_field_with_no_concept_says_so(client):
+    accession = _first_money_item(client)
+    body = client.get(f"/api/facts?accession={accession}&field=ceo_name").json()
+    assert body["facts"] == []
+    assert "no xbrl concept" in body["reason"].lower()
+
+
+def test_facts_endpoint_rejects_unknown_accession_and_field(client):
+    assert client.get("/api/facts?accession=0000000000-00-000000"
+                      "&field=total_assets").status_code == 404
+    accession = _first_money_item(client)
+    assert client.get(f"/api/facts?accession={accession}"
+                      f"&field=not_a_field").status_code == 400
+
+
+def test_the_page_offers_the_finder_panel(client):
+    page = client.get("/").text
+    assert 'id="facts"' in page, "finder panel missing from the app page"
+    assert "tagged facts" in page.lower()

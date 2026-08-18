@@ -44,7 +44,7 @@ from evaluation.labeling import (  # noqa: E402
     ANSWER_KINDS, QUEUE_FIELDS, build_queue, completed_keys, label_record,
     prior_hint, validate_label,
 )
-from evaluation.xbrl import facts_named, parse_facts  # noqa: E402
+from evaluation.xbrl import facts_named, parse_facts, period_label  # noqa: E402
 
 BACKEND = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST = BACKEND / "corpus" / "manifest.json"
@@ -270,6 +270,40 @@ def _facts_for(accession: str) -> list[dict]:
     return _facts_cache[accession]
 
 
+@app.get("/api/facts")
+def filer_facts(accession: str, field: str):
+    """The filer's own tagged facts for one field -- xbrl_facts.py, in-app.
+
+    Added 2026-08-18 at the owner's request, as the sanctioned alternative to
+    model help: plan §5 records rejecting LLM assistance for labeling and
+    replacing it with the registrant's own tags, because reading the filer's
+    tags is reading the filing. Same contract as the CLI finder: every fact
+    for the field's concepts with its resolved period and dimensions, and
+    never a single crowned answer -- a comparative column and a
+    subsequent-event declaration are tagged the same way, so picking the
+    period under label stays the labeler's call.
+    """
+    filing = _by_accession.get(accession)
+    if filing is None:
+        raise HTTPException(status_code=404, detail="unknown accession")
+    spec = FIELD_CONCEPTS.get(field)
+    if spec is None:
+        raise HTTPException(status_code=400, detail="unknown field")
+    if not spec.get("concepts"):
+        return JSONResponse(
+            {"facts": [], "reason": "no XBRL concept for this field"})
+    facts = facts_named(_facts_for(accession), spec["concepts"])
+    return JSONResponse({
+        "facts": [{"text": f["text"], "period": period_label(f),
+                   "dims": f["dims"], "unit": f["unit"], "name": f["name"]}
+                  for f in facts],
+        "caveat": ("Every tag the filer wrote for this field, comparatives "
+                   "and subsequent events included. Picking the period under "
+                   "label is the labeler's call, and the anchor still comes "
+                   "from text selected in the filing."),
+    })
+
+
 @app.post("/api/undo")
 def undo_last():
     """Drop the most recent label so it can be redone.
@@ -337,6 +371,15 @@ label.row { display:flex; gap:8px; align-items:center; margin-top:8px; font-size
 #audit.warn { background:#3a1414; border-left:4px solid #f87171; color:#fecaca; }
 #audit.pass { background:#11201a; border-left:4px solid #2f7d5c; color:#8fcbb0;
               padding:7px 14px; font-size:12px; }
+#factsbox summary { cursor:pointer; }
+#facts { margin-top:8px; }
+#facts table { border-collapse:collapse; font-family:ui-monospace,Consolas,monospace;
+               font-size:12px; width:100%; }
+#facts td { padding:2px 8px 2px 0; border-bottom:1px solid #232936;
+            vertical-align:top; }
+#facts td.ft { text-align:right; color:#e6e6e6; white-space:nowrap; }
+#facts td.fd { color:#ffb020; font-size:11px; }
+#facts td.fp, #facts td.fu { color:#8b93a7; }
 #audit b { color:#fff1f2; display:block; font-size:14px; margin-bottom:3px; }
 #audit .why { color:#fda4af; }
 .prior { margin-top:8px; background:#12241c; border-left:3px solid #34d399;
@@ -361,6 +404,10 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
   </div>
   <div class="pad"><div id="units" style="display:none"></div></div>
   <div class="pad"><div class="guide" id="guide"></div></div>
+  <div class="pad"><details id="factsbox" ontoggle="if(this.open)loadFacts()">
+    <summary class="muted">Filer's tagged facts — a finder, not an answer</summary>
+    <div id="facts">…</div>
+  </details></div>
   <div class="pad">
     <div class="muted">Highlights <span id="hits"></span>
       <button onclick="jump(-1)">◀</button><button onclick="jump(1)">▶</button>
@@ -413,6 +460,42 @@ kbd { background:#232936; border:1px solid #3a4152; border-radius:3px;
 <script>
 let item=null, kind='value', anchor='', section='', hits=[], at=-1, loaded=null;
 let textNodes=[], nodeIndex=new Map();
+let factsFor=null;   // "accession|field" the panel currently shows
+
+// The in-app xbrl_facts finder. Fetched only when the labeler opens the
+// panel, rendered with textContent throughout -- fact text comes from the
+// filing and must not become markup.
+async function loadFacts(){
+  if(!item) return;
+  const key=item.accession+'|'+item.field;
+  if(factsFor===key) return;
+  factsFor=key;
+  const box=document.getElementById('facts');
+  box.textContent='loading…';
+  const r=await fetch('/api/facts?accession='+encodeURIComponent(item.accession)
+                      +'&field='+encodeURIComponent(item.field));
+  if(!r.ok){ box.textContent='unavailable ('+r.status+')'; factsFor=null; return; }
+  const b=await r.json();
+  if(!b.facts || !b.facts.length){
+    box.textContent=b.reason || 'nothing tagged for this field'; return;
+  }
+  box.textContent='';
+  const table=document.createElement('table');
+  for(const f of b.facts){
+    const tr=document.createElement('tr');
+    for(const [cls,val] of [['ft',f.text],['fp',f.period],
+                            ['fd',(f.dims||[]).join(', ')],['fu',f.unit||'']]){
+      const td=document.createElement('td');
+      td.className=cls; td.textContent=val; tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
+  const caveat=document.createElement('div');
+  caveat.className='muted'; caveat.style.marginTop='6px';
+  caveat.textContent=b.caveat||'';
+  box.appendChild(caveat);
+}
 
 async function load(){
   const s=await (await fetch('/api/queue')).json();
@@ -440,6 +523,10 @@ async function load(){
   document.getElementById('section').textContent='';
   value.value=''; searched.value=''; note.value=''; amb.checked=false; err.textContent='';
   preview.textContent='';
+  // New instance: fold the finder away so the default motion stays reading
+  // the filing; reopening refetches for the new accession+field.
+  factsFor=null; document.getElementById('factsbox').open=false;
+  document.getElementById('facts').textContent='…';
   // Only the three millions-denominated fields get a scale selector. Offering
   // it for per-share amounts or headcount would invite scaling something that
   // must never be scaled.
