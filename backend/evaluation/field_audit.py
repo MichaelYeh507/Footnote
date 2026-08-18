@@ -55,6 +55,16 @@ FIELD_CONCEPTS = {
                      "us-gaap:Revenues",
                      "us-gaap:RevenuesNetOfInterestExpense"),
         "kind": "money", "period": "duration",
+        # A filer can tag more than one consolidated revenue concept with
+        # materially different values, and then matching *any* of them accepts
+        # a subtotal as the top line. EXR is the case: `Revenues` is
+        # $3,256,902,000 while `RevenueFromContractWithCustomer...` is
+        # $120,855,000 -- 27x smaller -- because property rental is lease
+        # revenue under ASC 842 and only management fees are contract revenue
+        # under ASC 606. The income-statement top line is the most
+        # comprehensive of them, so a label matching a smaller one is reported
+        # rather than passed.
+        "prefer_largest": True,
     },
     "ceo_name": {
         "concepts": (),
@@ -90,6 +100,9 @@ AUDIT_HINTS = {
             "rather than the consolidated total",
     "DIFFERS": "the filing tags a different figure for this fiscal year",
     "ABSENT-BUT-TAGGED": "the filing tags a value for this fiscal year",
+    "CONCEPT-SPLIT": "the filing tags a larger consolidated figure for this "
+                     "fiscal year under a different concept, so this may be a "
+                     "subtotal rather than the top line",
 }
 
 
@@ -279,6 +292,17 @@ def audit_verdict(label: dict | None, facts: list[dict], period_end: str,
 
     for fact in year_facts:
         if fact["value"] is not None and close(value, fact["value"]):
+            if spec.get("prefer_largest"):
+                bigger = [f for f in year_facts
+                          if f["value"] is not None
+                          and f["value"] > fact["value"]
+                          and not close(f["value"], fact["value"])]
+                if bigger:
+                    largest = max(bigger, key=lambda f: f["value"])
+                    return "CONCEPT-SPLIT", (
+                        f"matches {fact['name'].split(':')[-1]}, but the filing "
+                        f"also tags a larger consolidated figure as "
+                        f"{largest['name'].split(':')[-1]} ({largest['text']})")
             return "OK", ""
 
     if spec.get("sum_quarters"):

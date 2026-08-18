@@ -36,10 +36,10 @@ from evaluation.labeling import QUEUE_FIELDS  # noqa: E402
 from evaluation.xbrl import facts_named, parse_facts, period_label  # noqa: E402
 
 # Most in need of a human look first.
-SEVERITY = ["ABSENT-BUT-TAGGED", "PERIOD", "DIMS", "DIFFERS", "OK-SUM",
-            "UNVERIFIED", "NO-CONCEPT", "ABSENT-OK", "OK", "MISSING"]
+SEVERITY = ["ABSENT-BUT-TAGGED", "PERIOD", "DIMS", "CONCEPT-SPLIT", "DIFFERS",
+            "OK-SUM", "UNVERIFIED", "NO-CONCEPT", "ABSENT-OK", "OK", "MISSING"]
 
-NEEDS_EYES = {"ABSENT-BUT-TAGGED", "PERIOD", "DIMS", "DIFFERS"}
+NEEDS_EYES = {"ABSENT-BUT-TAGGED", "PERIOD", "DIMS", "DIFFERS", "CONCEPT-SPLIT"}
 
 
 def main() -> int:
@@ -127,6 +127,8 @@ def render(findings: list[dict], counts: collections.Counter, verbose: bool) -> 
         "PERIOD": "**the figure belongs to a different period**",
         "DIMS": "**matches a segment / subsidiary / scenario, not the consolidated figure**",
         "ABSENT-BUT-TAGGED": "**labelled absent while the filing tags a value**",
+        "CONCEPT-SPLIT": "**matches a smaller revenue concept; a larger "
+                         "consolidated figure is also tagged**",
     }
     for code in SEVERITY:
         if counts[code]:

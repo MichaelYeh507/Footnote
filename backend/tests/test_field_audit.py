@@ -250,6 +250,44 @@ def test_a_non_numeric_label_never_crashes(junk):
 
 # ------------------------------------------- what the app is allowed to show
 
+def test_a_smaller_revenue_concept_is_reported_not_passed():
+    """EXR tags two consolidated revenue figures 27x apart.
+
+    `Revenues` is $3,256,902,000 while
+    `RevenueFromContractWithCustomerExcludingAssessedTax` is $120,855,000,
+    because property rental is lease revenue under ASC 842 and only management
+    fees are contract revenue under ASC 606. Matching *any* tagged concept
+    would accept the subtotal as the income-statement top line.
+    """
+    facts = [
+        {"name": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+         "text": "120,855", "value": 120_855_000.0, "unit": "usd",
+         "instant": None, "start": "2024-01-01", "end": "2024-12-31",
+         "dims": [], "offset": 0},
+        {"name": "us-gaap:Revenues", "text": "3,256,902",
+         "value": 3_256_902_000.0, "unit": "usd", "instant": None,
+         "start": "2024-01-01", "end": "2024-12-31", "dims": [], "offset": 0},
+    ]
+    subtotal, _ = audit_verdict(label("120.855"), facts, "2024-12-31",
+                                field="revenue_most_recent_fy")
+    assert subtotal == "CONCEPT-SPLIT"
+
+    topline, _ = audit_verdict(label("3256.902"), facts, "2024-12-31",
+                               field="revenue_most_recent_fy")
+    assert topline == "OK"
+
+
+def test_one_revenue_concept_alone_is_never_split():
+    """GWW tags exactly one consolidated revenue fact and must pass cleanly."""
+    facts = [{"name": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+              "text": "17,168", "value": 17_168_000_000.0, "unit": "usd",
+              "instant": None, "start": "2024-01-01", "end": "2024-12-31",
+              "dims": [], "offset": 0}]
+    code, _ = audit_verdict(label("17168"), facts, "2024-12-31",
+                            field="revenue_most_recent_fy")
+    assert code == "OK"
+
+
 def test_the_in_app_hint_never_carries_a_figure():
     """The banner sends the labeler back to the filing; it never answers.
 
@@ -259,7 +297,8 @@ def test_the_in_app_hint_never_carries_a_figure():
     """
     from evaluation.field_audit import audit_hint
 
-    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED"):
+    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED",
+                 "CONCEPT-SPLIT"):
         hint = audit_hint(code)
         assert hint, code
         assert not re.search(r"\d", hint), f"{code} hint leaks a digit: {hint!r}"
@@ -277,5 +316,6 @@ def test_every_flagged_verdict_has_a_hint():
     """A verdict the app cannot explain would surface as an empty banner."""
     from evaluation.field_audit import AUDIT_HINTS
 
-    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED"):
+    for code in ("PERIOD", "DIMS", "DIFFERS", "ABSENT-BUT-TAGGED",
+                 "CONCEPT-SPLIT"):
         assert code in AUDIT_HINTS
