@@ -32,29 +32,14 @@ import time
 from typing import Iterator
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-UA = "RAG-pipeline-prototype you@example.org"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import sec_contact  # noqa: E402
 
 # One session for the whole run. Opening a fresh TCP connection per request gets
 # the connection reset by SEC -- hundreds of handshakes in a row look like abuse
 # regardless of how politely they are paced.
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": UA})
-SESSION.mount(
-    "https://",
-    HTTPAdapter(
-        max_retries=Retry(
-            total=4,
-            backoff_factor=1.5,
-            status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=("GET",),
-        ),
-        pool_connections=4,
-        pool_maxsize=4,
-    ),
-)
+SESSION = sec_contact.session(pool=4)
 
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 DEFAULT_UNIVERSE = pathlib.Path("corpus/sp500_snapshot.json")

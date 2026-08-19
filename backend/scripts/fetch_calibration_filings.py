@@ -25,27 +25,13 @@ import sys
 import time
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import corpus_paths  # noqa: E402
+import sec_contact  # noqa: E402
 from services.html_parser import extract_text_from_html  # noqa: E402
 
-UA = "RAG-pipeline-prototype you@example.org"
-
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": UA})
-SESSION.mount(
-    "https://",
-    HTTPAdapter(
-        max_retries=Retry(total=4, backoff_factor=1.5,
-                          status_forcelist=(429, 500, 502, 503, 504),
-                          allowed_methods=("GET",)),
-        pool_connections=2,
-        pool_maxsize=2,
-    ),
-)
+SESSION = sec_contact.session(pool=2)
 
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 REQUEST_PAUSE = 0.2

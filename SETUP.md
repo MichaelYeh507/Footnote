@@ -90,12 +90,36 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 | `NEXT_PUBLIC_API_URL` | `frontend/.env.local` | No — defaults to `http://localhost:8000` | `app/lib/api.ts` |
 | `RAG_FILINGS_DIR` | shell / User scope | No — defaults to `backend/corpus/filings` | `backend/corpus_paths.py` |
 | `RAG_CALIBRATION_DIR` | shell / User scope | No — defaults to `backend/corpus/calibration` | `backend/corpus_paths.py` |
+| `SEC_CONTACT_EMAIL` | shell / User scope | Yes, for any SEC fetch — **no default, by design** | `backend/sec_contact.py` |
 
 The SEC corpus itself is not committed (only its manifest is). Every corpus reader — the
 fetch scripts, the labeling app, the label checkers — resolves the filings directory through
 `backend/corpus_paths.py`: set the two `RAG_*` variables to keep the data outside the repo,
 or place the filings at the repo-relative defaults. `scripts/fetch_filings.py` reproduces the
 corpus from the committed manifest into whichever location is configured.
+
+### `SEC_CONTACT_EMAIL`
+
+SEC's fair-access policy requires automated requests to carry a real contact address in
+their `User-Agent`; requests without one are throttled or refused. Set it before running
+any fetch script:
+
+```powershell
+$env:SEC_CONTACT_EMAIL = "you@example.org"     # this shell only
+[Environment]::SetEnvironmentVariable("SEC_CONTACT_EMAIL", "you@example.org", "User")
+```
+
+```bash
+export SEC_CONTACT_EMAIL=you@example.org
+```
+
+There is deliberately **no default and no placeholder**. A fabricated contact on a request
+to a federal system is worse than no request, so `sec_contact.py` raises instead of
+substituting one — and it raises on the request path, not at import, so the modules stay
+importable (the tests read pure functions out of them). The address is an environment
+variable rather than a constant because this repository is public and a committed address
+is permanent; `tests/test_sec_contact.py` fails the build if any published file carries
+one.
 
 ## Schema notes
 

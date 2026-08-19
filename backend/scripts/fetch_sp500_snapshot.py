@@ -22,17 +22,19 @@ import json
 import pathlib
 import sys
 
-import requests
 from bs4 import BeautifulSoup
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import sec_contact  # noqa: E402
+
 SOURCE = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-UA = "RAG-pipeline-prototype you@example.org"
+SESSION = sec_contact.session(pool=2)
 
 EXPECTED_MIN_ROWS = 480  # the index holds ~503 tickers; well under is a parse failure
 
 
 def scrape() -> list[dict]:
-    response = requests.get(SOURCE, headers={"User-Agent": UA}, timeout=60)
+    response = SESSION.get(SOURCE, timeout=60)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "lxml")
