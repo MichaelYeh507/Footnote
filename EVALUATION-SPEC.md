@@ -671,6 +671,56 @@ it. If that is not what the data says, publish what the data says.
 Report recall@1 and recall@5 per arm per stratum. Abstention rate on the
 unanswerable set, per arm.
 
+#### AMENDMENT 3 — QUERY STRATA RESTRATIFIED, 2026-08-19
+
+Written before a single query was written, before either index existed, and
+before any retrieval number existed.
+
+**The defect, measured with this project's own instrument.** The strata above
+are 20 exact-entity / 20 conceptual / 10 mixed. Run through
+`evaluation/wilson.py`, a stratum of n=10 at a recall of 0.80 gives
+**[0.490, 0.943] — ±22.7 points.** The very paragraph being amended raised the
+query count from 30 to 50 on the ground that *"the interval lands near ±15
+points, too wide to support any claim"*, and §3 gates any claim below n=25. The
+Mixed stratum as pre-registered would therefore publish a row that fails both of
+this document's own tests, and it would fail them by a wider margin than the
+design that was already rejected for failing them.
+
+**The change.** **25 exact-entity + 25 conceptual.** The Mixed stratum is
+dropped. The total is unchanged at **65 queries — 50 answerable + 15
+unanswerable**; only the split between strata moves. Measured at 0.80:
+
+| stratum | n | Wilson at 0.80 | half-width |
+|---|---|---|---|
+| as pre-registered, Mixed | 10 | [0.490, 0.943] | ±22.7 pts |
+| as pre-registered, each of the other two | 20 | [0.584, 0.919] | ±16.8 pts |
+| **amended, each stratum** | **25** | **[0.609, 0.911]** | **±15.1 pts** |
+| pooled answerable, unchanged | 50 | [0.670, 0.888] | ±10.9 pts |
+
+Both reported strata now clear the n=25 gate exactly, and the pooled answerable
+figure that carries the headline claim is computed on the same 50 queries either
+way.
+
+**Why Mixed goes rather than the other two shrinking.** A query is mixed by
+*degree*, not by kind: every conceptual query about a named issuer carries some
+lexical overlap, so the boundary would have been drawn query by query by the
+person writing them. That is a dial, and it sits in the one place this project
+can least afford one — the definition of the stratum, which decides which
+queries a stratum's number describes. The two surviving strata are separable by
+a rule that can be stated in advance and checked afterwards: **a query is
+conceptual if it shares no content word with its gold span**, and exact-entity
+otherwise.
+
+*Direction of effect, stated rather than buried:* it is **not obvious** which
+way this moves the hybrid arm's case, and asserting a direction would be a
+guess. Mixed queries — the ones carrying both a lexical and a semantic handle —
+are plausibly where fusing two partially-successful rankings has the most to add
+over either arm alone, so removing them may remove hybrid's most favourable
+ground. Against that, the pooled answerable figure is computed on 50 queries in
+either design. What can be said without guessing is that the change was made
+before any query was written and before either index existed, so it cannot have
+been made toward a result.
+
 ---
 
 ## Appendix — chunk assembly, pre-registered 2026-08-18
@@ -778,3 +828,243 @@ was considered and declined for scope. So retrieval quality here is reported
 **at one chunk size**, and this project cannot say whether another size would do
 better. If a second size is ever run it is reported as an additional arm, with
 this appendix amended, and never as a replacement for the first set of numbers.
+
+---
+
+## Appendix — retrieval parameters and the hit definition, pre-registered 2026-08-19
+
+Added to this published record on 2026-08-19, **before either index
+existed, before a single vector was computed, and before any query was
+written.** Like the chunk-assembly appendix above it is drawn from §4 of
+the internal plan rather than §5, which is the only reason it sits in an
+appendix rather than the body.
+
+It is published for the same reason everything else here is: each
+parameter below moves recall@k, so one chosen after seeing recall@k would
+be a dial rather than a decision, and a reader cannot check that ordering
+unless the parameters are visible beforehand. The `BM25` correction in
+part 2 refers to a sentence in the internal plan that has never appeared
+in this file; it is carried across so that the public record shows the
+correction rather than only the corrected version.
+
+**1. Dense arm.**
+
+- **Model `text-embedding-3-small`, 1,536 dimensions** — the model's native
+  size, with no Matryoshka truncation, so there is no dimension parameter that
+  could later be claimed to have been chosen for the result. 1,536 also sits
+  under pgvector's 2,000-dimension ceiling for an HNSW index on the `vector`
+  type, so the storage type is the obvious one and no `halfvec` workaround has
+  to be explained away.
+- **Distance: cosine.** Index opclass `vector_cosine_ops`, query operator
+  `<=>`. Written once, in one place, because an HNSW index built on one opclass
+  is simply not used by a query written with another operator, and that failure
+  is silent — a correct answer, arrived at slowly by sequential scan.
+- **HNSW `m = 16`, `ef_construction = 64`** (pgvector's defaults), query-time
+  **`hnsw.ef_search = 100`**. `ef_search` below the requested depth degrades
+  results quietly; 100 clears the depth of 50 fixed below by a factor of two.
+- **What is embedded: the chunk's `text` field, verbatim.** No title prefix, no
+  ticker or item header, no instruction prefix. `text-embedding-3-*` is
+  symmetric — it has no separate query and document prefixes — so the query is
+  embedded exactly the same way.
+- **Measured before embedding, so the truncation question is settled rather
+  than assumed:** 11,621 chunks, 4,890,354 tokens, median 460, **max 809**. The
+  largest chunk in the corpus is an order of magnitude below the model's input
+  limit, so **nothing is truncated** and every vector describes the whole
+  passage its citation names.
+
+**2. Sparse arm.**
+
+- **`tsvector` configuration `english`** — Snowball stemming and the English
+  stopword list. The sparse arm is the baseline the hybrid arm has to beat, and
+  a baseline configured to lose is not a measurement. `simple` was considered
+  and declined: it would hand the conceptual stratum to the dense arm by
+  construction rather than by measurement, since "impaired goodwill" would no
+  longer reach "goodwill impairment".
+- **Stored as a generated column**, `to_tsvector('english', text)`, over the
+  same `text` field the dense arm embeds. Both arms therefore see byte-identical
+  passages, which is the entire reason `scripts/build_chunks.py` materialises a
+  store instead of each index reading the filings for itself.
+- **A query becomes an OR of its lexemes, not an AND.** This is the largest
+  single choice on this page and it is disclosed as such. `plainto_tsquery` and
+  `websearch_to_tsquery` both AND every term, and against a twelve-word
+  conceptual query over 512-token passages the modal outcome of an AND is zero
+  rows — which would publish a parser artifact as a property of lexical
+  retrieval. The lexemes are taken from `plainto_tsquery('english', …)` and
+  joined with `|`.
+  *Direction of effect, stated rather than buried:* OR can only raise the sparse
+  arm's recall relative to AND. It moves the number in the **baseline's**
+  favour, against the hybrid arm this project is building, which is the
+  direction an ablation should err in.
+- **Ranking: `ts_rank_cd`, normalization flag 0** — no length normalization.
+  Cover density rewards passages whose matched terms sit close together. Length
+  normalization is declined because the chunker has already fixed length: these
+  passages run to a 512-token target with a measured median of 460, so dividing
+  by document length would correct a variation that chunk assembly removed by
+  construction.
+- **CORRECTION, 2026-08-19.** The fusion paragraph above says *"BM25 scores and
+  cosine similarities"*. **Postgres has no BM25.** `ts_rank_cd` is a
+  cover-density score and the two are not the same function. The argument for
+  RRF is untouched — `ts_rank_cd` scores and cosine similarities are on
+  incomparable scales for precisely the reason given there — but the name was
+  wrong, and it is corrected here beside the original rather than edited away.
+  The word appears only in this internal plan; it is in neither the published
+  `EVALUATION-SPEC.md` nor `RESULTS.md`.
+
+**3. Fusion.**
+
+- **RRF constant `k = 60`**, the value published with the method (Cormack,
+  Clarke and Buettcher, 2009). Fixed now and never tuned: a `k` chosen after
+  seeing recall@k is a dial, and nothing in a published number would reveal that
+  it had been turned.
+- **The formula, written out so it cannot drift:**
+  `score(d) = Σ over arms of 1 / (60 + rank_arm(d))`, ranks **1-based**, and a
+  document absent from an arm's list contributes **nothing** from that arm.
+- **Fusion depth: the top 50 from each arm.** A document ranked 51st by one arm
+  cannot be rescued by the other. 50 is ten times the deepest reported cutoff.
+- **Ties break by `chunk_id` ascending.** Arbitrary, but deterministic and
+  independent of every arm's score, so recall@1 is reproducible and the
+  tie-break cannot favour an arm.
+
+**4. What counts as a hit — the definition everything else rests on.**
+
+Gold is a **document location**, never a chunk id:
+
+> **(accession, quoted span)**, one or more per query.
+
+- **A retrieved chunk is a hit if and only if it comes from a gold accession
+  and its text contains that gold span**, under the normalization below. `item`
+  is recorded on every query for stratification and for reporting, and **is not
+  part of the hit test** — see the HON paragraph below.
+- **The gold chunk set is derived from the store at scoring time**, not frozen.
+  It is *every* chunk whose text contains the span, and **recall@k = 1 for a
+  query if at least one of them appears in that arm's top k.** With 64 tokens of
+  overlap a span near a boundary legitimately sits in two chunks; that is
+  correct semantics rather than a defect, because the question being asked is
+  whether the answering text was put in front of the reader.
+- **Normalization, fixed now and applied identically to gold span and chunk
+  text:** casefold; collapse every run of whitespace, newlines included, to a
+  single space; fold curly quotes to straight and en/em dashes to hyphen.
+  Nothing is stripped and no punctuation is removed. The folding is not
+  cosmetic — the store holds **13,603** curly apostrophes and **21,839**
+  em-dashes, so a span quoted with a typewriter apostrophe would otherwise miss
+  a passage that plainly contains it.
+- **Gold spans are quoted from the extracted text**, which is what the store
+  holds, and never from a browser rendering of the filing.
+- **Validation guard, run before any arm runs:** every gold span must match at
+  least one chunk in the current store. A span matching zero chunks is a broken
+  query, not a retrieval failure, and the query set is refused until it is
+  fixed. The guard reads **the store**, not any retriever's output, so it is the
+  same class of act as reading the filing and it does not break the blind.
+- **No metadata filtering.** Every query searches all 11,621 chunks in every
+  arm. Restricting a search to one filing or one Item is a different and much
+  easier task, and reporting it as retrieval over the corpus would be a false
+  claim.
+
+**Why a location and not a chunk id.** A chunk id is an artifact of a chunker
+version. Freezing gold to chunk ids would make the whole query set worthless the
+next time the chunker changes — and AMENDMENT 2 is the standing proof that this
+chunker can change — and it would additionally score as a miss a chunker that
+split the passage differently while still returning the text. *The honest cost,
+stated:* because the gold set is derived, recall numbers are not comparable
+across chunker versions either. What a location-based rule buys is that the
+**query set** survives a re-chunk, not that the numbers do. The obvious attack
+on a span rule — a chunker that satisfies every query by emitting one enormous
+chunk — is already closed by the 512-token cap pre-registered above and
+published in `EVALUATION-SPEC.md`.
+
+**Why `item` is excluded from the hit test.** HON's Items 1 and 7 are not
+separately labelled, and that text is retrievable and page-cited under
+`Item 1B` — the limitation disclosed in AMENDMENT 2's outcome above. If item
+equality were required for a hit, every query whose gold sits in HON's Item 1 or
+Item 7 would score a miss on account of a chunker artifact this project has
+already published as *not* a retrieval failure. That would import a known
+labelling limitation straight into the headline number. Item stays as metadata,
+where it can be reported without contaminating anything.
+
+**AMENDMENT 4 — A CAP ON THE GOLD SET, 2026-08-19.** Written the same day as
+the rule it amends, after measuring that rule against the store, and still
+before any query was written, before either index existed and before any
+retrieval number existed.
+
+**The defect.** Part 4 refuses a span matching **zero** chunks. It does not
+refuse a span matching **too many**, and the store says that is the larger
+hole. Measured by taking a span out of a real chunk and asking how many chunks
+it matches within its own filing — median filing 250 chunks:
+
+| span length | n | median gold set | mean | max | exactly 1 |
+|---|---|---|---|---|---|
+| 4 words | 96 | 2 | 10.74 | **382** | 9/96 = 0.094 |
+| 7 words | 96 | 2 | 4.55 | **155** | 13/96 = 0.135 |
+| 12 words | 94 | 2 | 2.07 | 14 | 17/94 = 0.181 |
+| 20 words | 94 | 2 | 1.88 | 14 | 28/94 = 0.298 |
+
+The **median of 2 is correct and expected**: it is the 64-token overlap putting
+a boundary-crossing span into two chunks, which part 4 already describes as
+correct semantics. The **tail** is the defect. A gold set of 382 chunks is
+larger than a whole median filing, and recall@5 against it is satisfied
+essentially by accident. That query would enter the pooled number as a success,
+and the failure is silent **in the direction that flatters the retriever** —
+which is the direction that matters.
+
+**The rule, fixed now.** A query's gold set may hold **at most 5 chunks**,
+counted as the **union** across all of that query's locations. Above that the
+query set is refused, in exactly the same way and for exactly the same reason
+as a span matching zero: it is a defect in the query, not a result from the
+retriever. Five sits above what overlap plus ordinary repetition produces — a
+phrase appearing in both the MD&A and the notes reaches three or four — and far
+below the boilerplate regime. It is also close to 2% of the median 250-chunk
+filing.
+
+The cap bounds the **union** rather than each location separately, because the
+union is what decides how easy recall@k is. A query naming several locations
+must therefore keep its total gold set inside the cap, which in practice means
+two or three locations.
+
+**A span-length floor was considered and is guidance, not a guard.** The
+measurement is explicit that length does not fix the tail: the maximum is still
+**14 chunks at both 12 and 20 words**. A 12-word minimum is recorded as written
+guidance for whoever writes the queries, and is reported as a non-blocking note,
+but what actually refuses a query is the cap.
+
+*Direction of effect, stated rather than buried:* this can only **lower**
+reported recall, never raise it, because it removes queries that were easy to
+satisfy. It is a change against the retriever's interest, made before any
+retriever existed.
+
+*Why this is legitimate now.* It is the test §5 sets for amending a
+pre-registered rule: the rule as written demonstrably fails its stated intent.
+The stated intent is that a hit means the arm put the answering passage in front
+of the reader; a 382-chunk gold set means almost any five chunks from that
+filing satisfy it. No index existed, no query existed, and no retrieval number
+existed when this was measured, so nothing here can have been tuned toward a
+result.
+
+**5. Reporting.**
+
+- **recall@1 and recall@5**, per arm, per stratum, each with a Wilson interval,
+  on the denominators fixed in §5.
+- **Stated precisely, because the name is loose:** every answerable query has at
+  least one gold chunk, so the quantity reported is a **hit rate at k** — the
+  share of queries with at least one gold chunk in the top k. It is called
+  recall@k because that is the term the literature uses for this quantity, and
+  the definition above is what is actually computed.
+- **The arm comparison is paired** — the same queries pass through all three
+  arms. Three overlapping Wilson intervals invite a reader to conclude "no
+  difference" when the paired data may say otherwise, so any comparison between
+  two arms is additionally reported as **the discordant pairs (b, c) with a
+  Wilson interval on b/(b+c)** — the queries one arm gets and the other misses.
+  That is the McNemar sign test, and it reuses `evaluation/wilson.py` rather
+  than introducing a second statistical implementation that would need its own
+  hand-verified tests.
+- **Abstention is not scored here.** The 15 unanswerable queries carry no gold
+  and recall is undefined for them. Abstention is a property of the QA layer and
+  is measured against it in Phases 4 and 5, never against a ranked list.
+
+**Cost, stated rather than buried.** One embedding model, one `tsvector`
+configuration, one RRF constant. This project therefore reports retrieval
+quality **at one configuration** and cannot say whether another embedder, a
+`simple` dictionary, or a different `k` would do better — the same limitation,
+for the same reason, as the one chunk size recorded above. If a second
+configuration is ever run it is reported as an additional arm with this section
+amended, never as a replacement for the first set of numbers.
+
