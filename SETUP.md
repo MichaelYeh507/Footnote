@@ -91,12 +91,41 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 | `RAG_FILINGS_DIR` | shell / User scope | No — defaults to `backend/corpus/filings` | `backend/corpus_paths.py` |
 | `RAG_CALIBRATION_DIR` | shell / User scope | No — defaults to `backend/corpus/calibration` | `backend/corpus_paths.py` |
 | `SEC_CONTACT_EMAIL` | shell / User scope | Yes, for any SEC fetch — **no default, by design** | `backend/sec_contact.py` |
+| `DATABASE_URL` | `backend/.env` | Only to apply a migration or rebuild the retrieval indexes — **no default, by design** | `backend/database.py` |
 
 The SEC corpus itself is not committed (only its manifest is). Every corpus reader — the
 fetch scripts, the labeling app, the label checkers — resolves the filings directory through
 `backend/corpus_paths.py`: set the two `RAG_*` variables to keep the data outside the repo,
 or place the filings at the repo-relative defaults. `scripts/fetch_filings.py` reproduces the
 corpus from the committed manifest into whichever location is configured.
+
+### `DATABASE_URL`
+
+`services/supabase_client.py` talks PostgREST, which can neither issue DDL nor
+`COPY`. Migration 003 creates the chunk table with its GIN and HNSW indexes, and
+`scripts/load_chunks.py` bulk-loads 11,621 rows, so both need a direct
+connection. The API itself does not — leave this unset to run the app.
+
+Two traps, and they report the *same* misleading error:
+
+- **Use the Session pooler string** (Supabase → Connect), not "Direct
+  connection". The direct host `db.<ref>.supabase.co` has no A record — IPv6
+  only, unless you buy the IPv4 add-on — so on an IPv4-only machine libpq
+  reports `getaddrinfo failed`, which reads as DNS and is not. The pooler host
+  contains `pooler.supabase.com`, and its username is `postgres.<project-ref>`
+  rather than bare `postgres`.
+- **Percent-encode the password.** Supabase generates passwords containing `@`,
+  which a URI reserves: libpq splits the userinfo at the *first* `@`, so part of
+  the password becomes the hostname — and the error is `getaddrinfo failed`
+  again. Write it as `%40` (likewise `%5B %5D %2F %3F %23`). The identical
+  credentials connect fine when passed as keyword arguments, which is what makes
+  this look like a driver bug rather than an encoding one.
+
+`backend/database.py` refuses both cases with a message naming the substitution,
+and never echoes the password. There is deliberately no default: a plausible one
+like `postgresql://localhost/postgres` would connect on any machine running a
+local Postgres and build both indexes over an empty table, and every recall
+number computed afterwards would be zero with nothing saying why.
 
 ### `SEC_CONTACT_EMAIL`
 
