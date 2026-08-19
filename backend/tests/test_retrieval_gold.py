@@ -265,6 +265,84 @@ class TestTheGoldSetCap:
         assert gold.advisory_notes([("acc-1", span)]) == []
 
 
+class TestTheDuplicateSpanAdvisory:
+    """AMENDMENT 5, 2026-08-19, decided before any query was written.
+
+    Measured over the store: 217 groups of byte-identical chunk text, of which
+    **214 are the same issuer's two fiscal years** and only 3 span different
+    issuers -- and all 3 of those are 7-22 token stubs (`Item 6. [Reserved]`,
+    `Item 9 ... None.`) that the 12-word guidance already excludes. So the live
+    case is a company's FY2024 and FY2025 boilerplate being identical: 428
+    chunks, 3.7% of the store.
+
+    Gold is accession-scoped, so retrieving the other year counts as a miss --
+    and no text-only retriever can tell the two apart, because the text is the
+    same. That makes such a query a coin flip for every arm equally.
+
+    Advisory rather than refusal, deliberately. Refusing would remove precisely
+    the *stable* content -- business description, risk factors -- and steer the
+    query set toward year-specific financial figures, which is a selection
+    effect no reader could detect from the published numbers.
+    """
+
+    # Both texts are 13 words, so the length advisory stays quiet and these
+    # tests isolate the duplication note.
+    UNIQUE = "a passage that appears only once anywhere in this entire corpus of filings"
+    REPEATED = "boilerplate language that this issuer repeats verbatim in both of its fiscal years"
+
+    RECORDS = [
+        _record("u1", "acc-1", UNIQUE),
+        _record("d1", "acc-1", REPEATED),
+        _record("d2", "acc-2", REPEATED),
+    ]
+
+    def test_a_unique_span_draws_no_duplicate_note(self):
+        assert gold.advisory_notes([("acc-1", self.UNIQUE)],
+                                   records=self.RECORDS) == []
+
+    def test_a_span_repeated_in_another_filing_is_flagged(self):
+        notes = gold.advisory_notes([("acc-1", self.REPEATED)],
+                                    records=self.RECORDS)
+        assert len(notes) == 1
+        assert "acc-2" in notes[0]
+
+    def test_the_note_is_machine_countable(self):
+        """The amendment says to *report* how many of the final 50 carry the
+        flag, so the note needs a stable prefix rather than only prose.
+
+        The prefix is asserted as a literal, not against `gold.DUPLICATE_NOTE`.
+        Perturbation showed why: `notes[0].startswith(gold.DUPLICATE_NOTE)`
+        compares the note to the same constant it is built from, so emptying
+        the constant satisfies it trivially -- `"".startswith("")` is True. The
+        test could not fail.
+        """
+        assert gold.DUPLICATE_NOTE == "DUPLICATE-SPAN"
+        notes = gold.advisory_notes([("acc-1", self.REPEATED)],
+                                    records=self.RECORDS)
+        assert notes[0].startswith("DUPLICATE-SPAN")
+
+    def test_the_advisory_does_not_refuse_the_query(self):
+        """Advisory means advisory: validate_gold must still pass it."""
+        assert gold.validate_gold(self.RECORDS,
+                                  [("acc-1", self.REPEATED)]) == []
+
+    def test_the_check_is_skipped_without_the_store(self):
+        """The length note needs no store; the duplication note does. Callers
+        that have not loaded one must still get the length advisory."""
+        assert gold.advisory_notes([("acc-1", "short span")]) != []
+
+    def test_both_advisories_fire_on_one_location(self):
+        """The span below is 5 words *and* repeated, so it is short and
+        duplicated. Both notes must appear: reporting only the first would hide
+        whichever check happened to run second."""
+        notes = gold.advisory_notes(
+            [("acc-1", "issuer repeats verbatim in both")],
+            records=self.RECORDS)
+        assert len(notes) == 2
+        assert any(n.startswith(gold.DUPLICATE_NOTE) for n in notes)
+        assert any("12" in n for n in notes)
+
+
 # ------------------------------------------------------------------ hit@k
 
 class TestHitAtK:

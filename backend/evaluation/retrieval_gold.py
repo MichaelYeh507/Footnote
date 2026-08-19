@@ -175,12 +175,39 @@ def validate_gold(records: list[dict],
     return []
 
 
-def advisory_notes(locations: list[tuple[str, str]]) -> list[str]:
-    """Non-blocking notes. Short spans hit the cap above more often.
+# AMENDMENT 5, 2026-08-19 -- decided before any query was written.
+#
+# Measured over the store: 217 groups of byte-identical chunk text. **214 of
+# them are one issuer's two fiscal years**; only 3 span different issuers, and
+# all 3 are 7-22 token stubs (`Item 6. [Reserved]`, `Item 9 ... None.`) that the
+# 12-word guidance already excludes. The live case is therefore a company's
+# FY2024 and FY2025 boilerplate being identical: 428 chunks, 3.7% of the store.
+#
+# Gold is accession-scoped, so retrieving the other year is scored a miss -- and
+# no text-only retriever can distinguish them, because the text is identical.
+# Such a query is a coin flip for every arm equally.
+#
+# ADVISORY, not a refusal, and the choice is deliberate. Refusing these spans
+# would remove precisely the *stable* content -- business description, risk
+# factors -- and steer the query set toward year-specific financial figures.
+# That is a selection effect on what gets measured, and no reader could detect
+# it from the published numbers. The amendment instead requires that the number
+# of flagged queries be **reported** alongside the results.
+DUPLICATE_NOTE = "DUPLICATE-SPAN"
 
-    Guidance rather than a refusal, because the measurement showed length does
-    not prevent the defect on its own -- a 20-word span still reached 14
-    chunks. What decides is `validate_gold`.
+
+def advisory_notes(locations: list[tuple[str, str]],
+                   records: list[dict] | None = None) -> list[str]:
+    """Non-blocking notes about a query's gold. Never refuses anything.
+
+    Two checks. The length one needs no store; the duplication one does, so
+    `records` is optional and callers without a loaded store still get the
+    length advisory.
+
+    Both are guidance rather than guards, for the same reason: the measurements
+    showed neither prevents a defect on its own. A 20-word span still reached 14
+    chunks, so `validate_gold`'s cap is what decides; and duplicated text is a
+    real property of the corpus rather than a mistake, so the author decides.
     """
     notes = []
     for accession, span in locations:
@@ -191,6 +218,19 @@ def advisory_notes(locations: list[tuple[str, str]]) -> list[str]:
                 f"{MIN_SPAN_WORDS}-word guideline. Short spans match "
                 f"boilerplate more often."
             )
+        if records is not None:
+            elsewhere = sorted({
+                r["accession"] for r in records
+                if r["accession"] != accession and contains_span(r["text"], span)
+            })
+            if elsewhere:
+                notes.append(
+                    f"{DUPLICATE_NOTE} {accession}: this span also appears in "
+                    f"{', '.join(elsewhere)}. Gold is accession-scoped, so "
+                    f"retrieving the other filing scores a miss, and no "
+                    f"text-only retriever can tell them apart. Pin the fiscal "
+                    f"year in the query text or quote a different passage."
+                )
     return notes
 
 

@@ -1039,6 +1039,64 @@ filing satisfy it. No index existed, no query existed, and no retrieval number
 existed when this was measured, so nothing here can have been tuned toward a
 result.
 
+**AMENDMENT 5 — DUPLICATE SPANS ARE FLAGGED, NOT REFUSED, 2026-08-19.** Decided
+after both indexes were built and loaded, and still **before any query was
+written**. It adds a non-blocking advisory; it changes no scoring rule.
+
+**How it was found.** A dense-index sanity check — "a chunk is its own nearest
+neighbour" — failed against a *correct* index, because two chunks sat at cosine
+distance exactly 0. Their text is byte-identical.
+
+**Measured over the loaded store:**
+
+| | |
+|---|---|
+| groups of byte-identical chunk text | **217** |
+| chunks involved | **448 / 11,621 = 3.9%** |
+| groups that are **one issuer's two fiscal years** | **214 (98.6%)** |
+| groups spanning **different issuers** | **3**, totalling **20 chunks (0.17%)** |
+| groups larger than a pair | 3 (sizes 3, 7, 10) |
+| filings containing the same passage **twice internally** | **0** |
+
+The three cross-issuer groups are all trivial stubs — `Item 6. [Reserved]`
+(7 tokens), `Item 9 … None.` (21 tokens), `Item 9 … Not applicable.` (22
+tokens) — every one below the 12-word span guidance already in force. The
+group of ten, which looked alarming as a bare number, is the second of those.
+
+So the live case is narrow and specific: **a company's FY2024 and FY2025
+boilerplate being identical, 428 chunks.**
+
+**Why it matters.** Gold is scoped to the accession, so retrieving the other
+fiscal year is scored a miss — and **no text-only retriever can distinguish
+them**, because the text is the same. A query whose gold span sits in such a
+pair is therefore a coin flip, for every arm equally.
+
+**The rule.** A gold span that also appears in another filing draws a
+**non-blocking advisory** naming the other accessions. The query set is not
+refused. The **number of flagged queries in the final 50 is reported alongside
+the results**, so the effect is disclosed rather than absorbed.
+
+**Why advisory and not refusal — the reasoning that decided it.** Refusing such
+spans would remove precisely the *stable* content: business description,
+properties, risk factors — the text that legitimately repeats year to year. It
+would steer the query set toward year-specific content, which is mostly
+financial figures. That is a **selection effect on what gets measured**, it
+would make the corpus look easier, and no reader could detect it from the
+published numbers. A visible advisory plus a reported count costs nothing and
+leaves the judgement with whoever writes the query, who can pin the fiscal year
+in the query text instead.
+
+*Direction of effect, stated rather than buried:* none, by construction — this
+amendment changes no scoring rule and refuses nothing. Its only effect is on
+which queries a human chooses to write, and the count of affected queries is
+published so a reader can weigh it.
+
+**The zero is load-bearing.** No filing contains the same passage twice, which
+is why AMENDMENT 4's accession-scoped cap of 5 means what it says. All the
+figures above are pinned as tests in `tests/test_indexes.py`, so a corpus change
+that moves any of them fails loudly rather than quietly invalidating this
+reasoning.
+
 **5. Reporting.**
 
 - **recall@1 and recall@5**, per arm, per stratum, each with a Wilson interval,
