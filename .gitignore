@@ -10,6 +10,11 @@ HANDOFF-*.md
 HYBRID-RETRIEVAL-SEC-PLAN.md
 RECON.md
 PROJECT-STANDARDS.md
+# The README draft. The public README is written last, from the results; this is
+# the working target for it and must not reach the public repo ahead of that.
+# It sat untracked but unignored for a day, which one `git add -A` would have
+# undone.
+README-TARGET.md
 
 # Python
 venv/

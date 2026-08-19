@@ -1097,6 +1097,50 @@ figures above are pinned as tests in `tests/test_indexes.py`, so a corpus change
 that moves any of them fails loudly rather than quietly invalidating this
 reasoning.
 
+**DISCLOSED — RETRIEVAL OUTPUT WAS SEEN BEFORE THE QUERY SET WAS WRITTEN,
+2026-08-19.** Recorded before the first query was written, and published rather
+than kept internal, because it is an ordering fact and an ordering fact a reader
+cannot see is indistinguishable from one that was hidden.
+
+The rule in force is that the query set is written **blind to retrieval
+output**: reading filings to write queries is fine, reading what the retriever
+returns is not. While verifying that the two indexes were actually being used by
+the query planner — not merely that they existed — smoke queries were run
+against the live indexes. That is retrieval output, and it was seen.
+
+**Exactly what was seen, stated so the exposure is bounded rather than
+characterised:**
+
+- **Sparse arm, one query** (`goodwill | impairment | charge`): the top five
+  chunk ids with their tickers, item labels and `ts_rank_cd` scores — two MA
+  `Item 8` chunks, one DOW `Item 8`, two WYNN `Item 7`. **The text of those
+  chunks was not displayed.**
+- **Dense arm:** self-retrieval only — a stored vector queried against the index
+  returning its own chunk at distance 0. No topical query was run.
+- **Incidentally, while diagnosing byte-identical chunks:** one MPC `Item 1A`
+  passage and one GWW `Item 1A` passage, plus the three duplicate stubs quoted
+  in AMENDMENT 5.
+
+**Why it is a risk at all.** A query about goodwill impairment whose gold span
+came from an MA, DOW or WYNN `Item 7`/`Item 8` passage would be a query written
+in the knowledge that the sparse arm already ranks it first. That inflates
+sparse recall, and nothing in the published numbers would reveal it.
+
+**The constraint, fixed now and checkable afterwards:** **no query in the set may
+take its gold from a goodwill-impairment passage in MA, DOW or WYNN.** The
+exposure is five chunks and one query term; this constraint covers all of it
+with room to spare, and it can be verified against the finished query set by
+anyone.
+
+**What is not affected.** The dense arm saw no topical query, so no query
+anywhere in the set is informed by dense output. The 11,616 chunks outside those
+five are untouched, as is every other issuer and every other topic.
+
+*Direction of effect if the constraint were violated:* it would raise sparse
+recall specifically, which is the arm the hybrid arm is measured against — so
+the error would flatter the baseline and understate hybrid's margin. Stated for
+completeness; the constraint is what makes it moot.
+
 **5. Reporting.**
 
 - **recall@1 and recall@5**, per arm, per stratum, each with a Wilson interval,
