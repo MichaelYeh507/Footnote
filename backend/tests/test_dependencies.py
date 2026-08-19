@@ -109,7 +109,24 @@ def test_dev_only_packages_are_not_in_runtime_requirements():
     hides which packages the app actually needs."""
     runtime = _declared_distributions("requirements.txt")
     assert "pytest" not in runtime
-    assert "tiktoken" not in runtime, (
-        "tiktoken is measurement tooling; move it to requirements.txt only when "
-        "the chunker needs it at runtime"
+
+
+def test_tiktoken_is_a_runtime_dependency_now_that_the_chunker_exists():
+    """This guard used to assert the opposite, and the inversion is the point.
+
+    Until 2026-08-18 tiktoken was measurement tooling -- corpus sizing only,
+    deliberately kept out of requirements.txt so the runtime footprint stayed
+    honest -- and the assertion read "move it to requirements.txt only when the
+    chunker needs it at runtime". The chunker landed that day:
+    services/chunk_assembly.py budgets chunks with the model's own encoding, so
+    tiktoken is now imported on the retrieval path.
+
+    The condition the old guard was waiting for is the condition this one
+    checks, which is why it was inverted rather than deleted. A guard quietly
+    removed because it started failing is how a real constraint disappears.
+    """
+    runtime = _declared_distributions("requirements.txt")
+    assert "tiktoken" in runtime, (
+        "services/chunk_assembly.py imports tiktoken, so it belongs in "
+        "requirements.txt rather than requirements-dev.txt"
     )

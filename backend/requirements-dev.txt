@@ -2,8 +2,6 @@
 #   pip install -r requirements.txt -r requirements-dev.txt
 pytest==9.1.1
 
-# Token counting for corpus sizing and chunk budgets. Not a runtime dependency
-# yet -- the pipeline sends whole documents. Moves to requirements.txt when the
-# chunker lands.
-tiktoken==0.13.0
-regex==2026.7.19
+# tiktoken and its regex dependency moved to requirements.txt on 2026-08-18:
+# services/chunk_assembly.py counts chunk budgets with the model's own
+# encoding, so they are runtime now.

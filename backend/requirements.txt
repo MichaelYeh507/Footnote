@@ -47,6 +47,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-multipart==0.0.20
 realtime==2.28.3
+regex==2026.7.19
 requests==2.32.5
 rich==14.3.3
 six==1.17.0
@@ -61,6 +62,7 @@ supabase==2.28.3
 supabase-auth==2.28.3
 supabase-functions==2.28.3
 tenacity==9.1.2
+tiktoken==0.13.0
 tqdm==4.67.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0

@@ -672,3 +672,109 @@ Report recall@1 and recall@5 per arm per stratum. Abstention rate on the
 unanswerable set, per arm.
 
 ---
+
+## Appendix — chunk assembly, pre-registered 2026-08-18
+
+Added to this published record on 2026-08-18, after the section splitter was
+built and **before any chunk, any index, or any retrieval number existed.** It
+is drawn from §4 of the internal plan rather than §5, which is the only reason
+it sits in an appendix instead of the body above; the header's "verbatim §5
+extract" describes everything before this line.
+
+It is published for the same reason the retrieval design above is: chunk size
+moves recall@k, so a size chosen after seeing recall@k would be a dial rather
+than a decision, and a reader cannot check that ordering unless the parameters
+are visible beforehand.
+
+**Measured first.** Over all 44 corpus documents, the section splitter yields
+**1,000 sections: median 117 tokens, p75 1,032, p95 22,154, max 238,240.**
+`Item 8` alone has a median of 25,510 tokens. A section is therefore sometimes
+one sentence and sometimes tens of thousands of tokens, and neither is a
+passage — which is why chunk assembly needs parameters at all.
+
+**CORRECTION — the figures in the paragraph above are wrong, 2026-08-19.** They
+are kept rather than edited, because a revision a reader cannot see is
+indistinguishable from a quiet fix.
+
+Building the store over all 44 filings showed that section detection was
+chaining contents-table entries to the handful of headings printed near the end
+of a document. A contents table lists every Item in canonical order by
+construction; a body does not, because some headings are printed in a form the
+pattern did not match. The mixed chain was therefore *longer* than any chain
+drawn from the body alone and won on length. What that produced:
+
+- **SO** put 91% of its filing under one section labelled `Item 13 Certain
+  Relationships and Related Transactions`. The **max 238,240** quoted above is
+  that section, and the p95 of 22,154 is inflated by the same defect.
+- **DVN** put 82% under `Item 9C`.
+- **HON** delivered **83 of 11,907 non-blank lines — 0.7%** — because every
+  `Item N` line in the document sits in a cross-reference index after its
+  signature block, and no body heading was matched at all.
+- The claim that every filing yields Items 1/1A/7/8 was true only because a
+  contents-table stub counts as a section.
+- Independently: the last section ran to end of document, so for the 12 filings
+  that incorporate Item 8 by reference the financial statements landed under
+  `Item 15` or `Item 16`. CHTR and DGX carried ~50% of their chunks under
+  `Item 16 Form 10-K Summary` — a citation naming a section the text is not in.
+
+**Corrected measurement, after the repair:** **100.0% of the corpus text
+(377,270 of 377,270 non-blank lines) now falls inside a detected section**, up
+from 90.9%, and **11,621 chunks** are built from 44 of 44 filings. Chunks
+labelled `Item 13` fell from 1,299 to 42 and `Item 16` from 1,226 to 166, while
+`Item 8` rose from 2,378 to 3,668. The largest section in every filing is now
+either `Item 8` (32 filings) or the item-less front matter and post-signature
+tail (10).
+
+The repair changed **where sections begin and end**, and nothing about chunk
+size or overlap: 512/64 stand as fixed below. It was made before any index
+existed, before any query was written, and before any retrieval number existed,
+so no result could have been tuned toward — and none is comparable across it,
+because none was computed before it. The rules, the four acceptance criteria
+fixed before the repair was written, the two of those criteria that turned out
+to be wrong, and the one filing that still does not parse cleanly (HON, whose
+Items 1 and 7 remain unlabelled because its document order is not canonical)
+are recorded in the project plan.
+
+**Fixed, 2026-08-18:**
+
+1. **Target 512 tokens per chunk, 64 tokens of overlap** (~7,600 chunks over
+   3.88M section tokens).
+2. **Split on paragraph boundaries**, never mid-paragraph. A single paragraph
+   longer than the target becomes its own oversized chunk rather than being cut.
+3. **A chunk never spans two Items** — the citation names one section, and a
+   chunk straddling a boundary would make that citation false.
+4. **Small sections are kept whole**, never merged with a neighbour.
+5. **Every chunk carries** accession, ticker, period, item, section title, and
+   the page range its text falls on. Pages come from the `<hr>` page rules,
+   which are present in all 44 documents and whose count matches the
+   `page-break` CSS count exactly in every one.
+6. **Tokens are counted with the model's own encoding**, not characters or
+   words.
+
+**Clarification, 2026-08-18 — overlap is quantised to whole blocks.** Made
+while implementing, before any chunk was indexed and before any retrieval number
+existed. Rule 2 forbids cutting a block, so overlap can only be carried in whole
+blocks, and a strict 64-token budget then produces **no overlap at all** on
+ordinary filings — a prose block runs 80-plus tokens against a 64-token budget.
+Zero overlap is the failure this parameter exists to prevent. The rule is
+therefore: **always carry back at least one whole block, and let the 64-token
+budget decide how many additional blocks follow.** *Direction of effect:* the
+effective overlap is larger than 64 tokens, never smaller, so marginally more
+text is duplicated across chunks — a change in the retriever's favour, disclosed
+as such.
+
+**A second measurement, recorded because it changed the implementation.** The
+atomic block is a **line**, not a blank-line-separated paragraph. In extracted
+filing text one line is one block element — a heading, a paragraph, or a table
+cell — and filings run heading, paragraph, heading down consecutive lines with
+no blank between them. A blank-line rule was written first and returned whole
+sections as single blocks, so chunking silently did not happen at all. The
+corpus is unambiguous: the median non-blank line is 3 characters, because most
+lines are table cells, while prose lines reach 2,198.
+
+**Cost, stated rather than buried.** 512 is a convention, not a measurement.
+The alternative — running two chunk sizes as declared arms and publishing both —
+was considered and declined for scope. So retrieval quality here is reported
+**at one chunk size**, and this project cannot say whether another size would do
+better. If a second size is ever run it is reported as an additional arm, with
+this appendix amended, and never as a replacement for the first set of numbers.

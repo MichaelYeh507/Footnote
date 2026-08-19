@@ -72,3 +72,14 @@ def backup_dir() -> pathlib.Path:
         path = pathlib.Path(override)
         return path if path.is_absolute() else BACKEND / path
     return filings_dir().parent / "label-backups"
+
+
+def chunks_dir() -> pathlib.Path:
+    """Where the materialised chunk store goes.
+
+    Chunk text is filing text, so the store is data under the standing rule
+    that data never enters the repo -- and it is 3.9M tokens of it. Derived
+    from the filings location for the same reason as `backup_dir`: one data
+    root, one place a reader has to agree on, and no third variable to set.
+    """
+    return filings_dir().parent / "chunks"

@@ -25,16 +25,28 @@ to look like:
   ("Items 1 and 2. Business and Properties").
 
 What survives all of that is structure rather than wording: **the real headings
-are the longest run of Items in canonical order across the document.** A
-contents table is such a run too, so ties are broken toward later occurrences,
-which is what separates the body from the front matter. Cross-references are
-dropped first, by the comma that follows the item number.
+are the run of Items, in canonical order, that is backed by the most text.**
+Cross-references are dropped first, by the comma that follows the item number.
 
-Measured over all 44 documents: 44 of 44 yield Items 1, 1A, 7 and 8. The
-detector this project retired -- `item_8_by_reference` -- failed because it
-asked prose a question prose cannot answer. This one asks only where the
-headings are, which the document does record, and the corpus test in
-tests/test_chunking.py is what keeps that claim honest.
+AMENDMENT 2 (2026-08-18) replaced "the longest run, ties toward later
+occurrences" with that rule, because length is the one contest a contents table
+always wins: it lists every Item by construction, while a body prints some
+headings in a form no pattern here matches. Chaining twenty table entries to
+the two or three headings near the end beat every body chain on length, and SO
+filed 91% of its document under `Item 13` as a result. HON, whose `Item N` lines
+appear only in a cross-reference index after its signature block, delivered 0.7%
+of its text. Both numbers, the repair, and its acceptance criteria are in the
+plan; the corrected figures are published in `EVALUATION-SPEC.md`.
+
+Measured over all 44 documents after the repair: **100% of the corpus text sits
+inside a detected section**, and 42 of 44 filings yield Items 1, 1A, 7 and 8.
+HON is the exception and is asserted as one -- its document order is not
+canonical, so no run in Item order can hold both its MD&A (printed pages 17-25)
+and its Risk Factors (page 41). The detector this project retired --
+`item_8_by_reference` -- failed because it asked prose a question prose cannot
+answer. This one asks only where the headings are, which the document does
+record, and the corpus tests in tests/test_chunking.py are what keep that claim
+honest.
 """
 
 import re
@@ -84,6 +96,79 @@ _HEADING = re.compile(
     re.I,
 )
 _ITEM_PART = re.compile(r"(\d{1,2})(?:\s*([a-c])(?![a-z]))?", re.I)
+
+# The item titles Form 10-K itself specifies. Added by AMENDMENT 2 (2026-08-18)
+# because HON marks its body sections with the title alone -- "Properties" on
+# printed page 53, "Controls and Procedures" on page 125 -- and prints "Item N"
+# only in a cross-reference index after its signature block. Before the
+# amendment that cost HON 99.3% of its text.
+#
+# This list is the form's, not any filer's. Nothing in it was added to make a
+# particular document parse, which is the difference between reading the
+# regulation and fitting the corpus.
+ITEM_TITLES = {
+    "1": "Business",
+    "1A": "Risk Factors",
+    "1B": "Unresolved Staff Comments",
+    "1C": "Cybersecurity",
+    "2": "Properties",
+    "3": "Legal Proceedings",
+    "4": "Mine Safety Disclosures",
+    "5": "Market for Registrant's Common Equity, Related Stockholder Matters "
+         "and Issuer Purchases of Equity Securities",
+    "6": "Selected Financial Data",
+    "7": "Management's Discussion and Analysis of Financial Condition and "
+         "Results of Operations",
+    "7A": "Quantitative and Qualitative Disclosures About Market Risk",
+    "8": "Financial Statements and Supplementary Data",
+    "9": "Changes in and Disagreements with Accountants on Accounting and "
+         "Financial Disclosure",
+    "9A": "Controls and Procedures",
+    "9B": "Other Information",
+    "9C": "Disclosure Regarding Foreign Jurisdictions that Prevent Inspections",
+    "10": "Directors, Executive Officers and Corporate Governance",
+    "11": "Executive Compensation",
+    "12": "Security Ownership of Certain Beneficial Owners and Management and "
+          "Related Stockholder Matters",
+    "13": "Certain Relationships and Related Transactions, and Director "
+          "Independence",
+    "14": "Principal Accountant Fees and Services",
+    "15": "Exhibits and Financial Statement Schedules",
+    "16": "Form 10-K Summary",
+}
+
+# A title heading is matched on its alphanumerics alone. Filers abbreviate from
+# the right ("Management's Discussion and Analysis", "Exhibits"), so a line is
+# accepted when it is a prefix of the canonical title -- and comparing stripped
+# text sidesteps the apostrophes, which arrive from EDGAR as U+FFFD often
+# enough that "Management's" and "Management?s" have to be the same heading.
+_MIN_TITLE_CHARS = 8
+_MIN_TITLE_WORDS = 3
+_ALPHANUMERIC = re.compile(r"[^a-z0-9 ]+")
+
+# A heading is "backed by text" when this many characters separate it from the
+# next candidate heading anywhere in the document. Measured before the rule was
+# written, over SO, DVN, MPC and GWW: consecutive contents-table entries sit 18
+# to 41 characters apart, while the smallest gap that holds prose is 1,085. The
+# threshold sits between the two populations with roughly five times' margin on
+# each side, which is what makes it a boundary rather than a dial.
+#
+# Measured against the *next candidate*, not the next chosen heading, so the
+# answer belongs to the heading rather than to the chain. Scoring whole sections
+# was tried first and is wrong: it rewards dropping a heading whenever doing so
+# merges two thin sections into one thick one, which is a bounty on losing
+# boundaries. The synthetic filing in the tests lost four of eleven Items that
+# way before this was measured.
+_BACKED_CHARS = 200
+
+# The signature block. Form 10-K prescribes the sentence, so that is the
+# reliable half; the bare heading is checked too because DGX prints "Signatures"
+# above a variant ("Sections 13 or 15(d)") that the prescribed wording misses.
+_SIGNATURE_HEADING = re.compile(r"^signatures?$", re.I)
+_SIGNATURE_SENTENCE = re.compile(
+    r"pursuant to the requirements of sections?\s+13\s+or\s+15\s?\(\s?d\s?\)",
+    re.I,
+)
 
 # Marks a page rule while the text is being built, then is removed. Chosen to be
 # a single token on its own line and to survive whitespace normalization.
@@ -220,12 +305,53 @@ def page_of_line(result: TextWithPages, line: int) -> int:
     return page
 
 
+def _normalize_title(line: str) -> str:
+    return " ".join(_ALPHANUMERIC.sub("", line.strip().lower()).split())
+
+
+_NORMALIZED_TITLES = tuple(
+    (item, _normalize_title(title)) for item, title in ITEM_TITLES.items()
+)
+
+
+def _title_item(raw: str) -> str | None:
+    """The Item a bare title line names, or None.
+
+    A line qualifies two ways: it is the canonical title exactly, or it is a
+    prefix of one at least three words long. Filers abbreviate from the right --
+    "Management's Discussion and Analysis" for Item 7, "Market for Registrant's
+    Common Equity" for Item 5 -- so prefixes have to be admitted, but admitting
+    short ones is how HON's stray "Changes in" became an Item 9 heading and
+    swallowed 4,609 lines of financial statements. Three words is what separates
+    an abbreviated title from a fragment of a sentence.
+
+    Where a prefix fits more than one title the earlier Item wins, and
+    _best_chain decides whether the line was a heading at all.
+    """
+    normalized = _normalize_title(raw)
+    if len(normalized) < _MIN_TITLE_CHARS:
+        return None
+    for item, title in _NORMALIZED_TITLES:
+        if title == normalized:
+            return item
+    if len(normalized.split()) < _MIN_TITLE_WORDS:
+        return None
+    for item, title in _NORMALIZED_TITLES:
+        if title.startswith(normalized + " "):
+            return item
+    return None
+
+
 def _candidates(text: str) -> list[tuple[int, list[str], str]]:
     """Every line that could be an Item heading, cross-references removed."""
     found = []
     for index, raw in enumerate(text.splitlines()):
         match = _HEADING.match(raw.strip())
         if not match:
+            # A filing may print the title alone -- see ITEM_TITLES.
+            item = _title_item(raw)
+            if item is not None:
+                found.append((index, [item], raw.strip()))
             continue
         rest = match.group(2).strip()
         # "Item 1A, Risk Factors - II. Insurance Risks" is a pointer, not a
@@ -244,20 +370,50 @@ def _candidates(text: str) -> list[tuple[int, list[str], str]]:
     return found
 
 
-def _best_chain(candidates: list[tuple[int, list[str], str]]) -> list[int]:
-    """Indices of the longest run in canonical order, preferring later lines.
+def _best_chain(candidates: list[tuple[int, list[str], str]],
+                line_ends: list[int]) -> list[int]:
+    """Indices of the run in canonical order that best partitions the document.
 
-    The tie-break is the whole trick. A contents table is a run in canonical
-    order just as the body is, and on a filing that has both they are the same
-    length -- so length alone cannot choose. Summing line numbers prefers the
-    run that sits later in the document, which is the body.
+    Ranked by how many of its headings are backed by text, then by length, then
+    by how early it starts. AMENDMENT 2 (2026-08-18) put the first term in front
+    and reversed the third, and both reasons are measured rather than aesthetic.
+
+    A contents table is a run in canonical order just as the body is, and it is
+    a *complete* one -- every Item, by construction -- while a body is not,
+    because some headings are printed in a form this pattern does not match. So
+    a chain of contents-table entries stitched to the two or three headings
+    printed near the end is longer than any chain drawn from the body alone,
+    and under the superseded rule it won on length before the later-occurrence
+    tie-break was ever consulted. SO put 91% of its filing under Item 13 that
+    way, DVN 82% under Item 9C.
+
+    Counting headings backed by text inverts that: a contents table's entries
+    are 18 to 41 characters apart and back nothing, while a body's headings each
+    open a passage. No density threshold and no per-filer rule -- the contents
+    table loses on what it is, not on where it sits.
+
+    Preferring later lines was the superseded rule's way of beating the contents
+    table, and once "backed by text" does that job the preference is not merely
+    unnecessary but wrong. HON repeats each section's title as a running page
+    header -- "FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA" on some eighty
+    consecutive pages -- so preferring later starts Item 8 at printed page 122
+    instead of 57. A section begins where it begins, so ties now go to the
+    earliest start.
     """
     if not candidates:
         return []
 
-    best: list[tuple[int, int, int]] = []
+    # Chain-independent, so a heading's worth cannot change with the company it
+    # keeps -- see _BACKED_CHARS for the merging bounty that alternative buys.
+    backed = []
+    for index, (line, _items, _rest) in enumerate(candidates):
+        following = (candidates[index + 1][0] if index + 1 < len(candidates)
+                     else len(line_ends) - 1)
+        backed.append(line_ends[following] - line_ends[line] > _BACKED_CHARS)
+
+    best: list[tuple[int, int, int, int]] = []
     for index, (line, items, _rest) in enumerate(candidates):
-        length, total, previous = 1, line, -1
+        populated, length, total, previous = int(backed[index]), 1, -line, -1
         for other in range(index):
             other_line, other_items, _ = candidates[other]
             if other_line >= line:
@@ -269,21 +425,52 @@ def _best_chain(candidates: list[tuple[int, list[str], str]]) -> list[int]:
             # heading begins is what admits that perfectly ordinary layout.
             if _RANK[other_items[0]] >= _RANK[items[0]]:
                 continue
-            length_so_far, total_so_far, _ = best[other]
-            if (length_so_far + 1, total_so_far + line) > (length, total):
-                length, total, previous = length_so_far + 1, total_so_far + line, other
-        best.append((length, total, previous))
+            populated_so_far, length_so_far, total_so_far, _ = best[other]
+            score = (populated_so_far + int(backed[index]),
+                     length_so_far + 1,
+                     total_so_far - line)
+            if score > (populated, length, total):
+                populated, length, total = score
+                previous = other
+        best.append((populated, length, total, previous))
 
-    end = max(range(len(candidates)), key=lambda i: (best[i][0], best[i][1]))
-    if best[end][0] < MIN_SECTIONS:
+    end = max(range(len(candidates)),
+              key=lambda i: (best[i][0], best[i][1], best[i][2]))
+    if best[end][1] < MIN_SECTIONS:
         return []
 
     chain = []
     cursor = end
     while cursor != -1:
         chain.append(cursor)
-        cursor = best[cursor][2]
+        cursor = best[cursor][3]
     return list(reversed(chain))
+
+
+def _line_ends(lines: list[str]) -> list[int]:
+    """Cumulative character offset of each line start, with a final total.
+
+    Lets _best_chain price a candidate section in characters at O(1), which is
+    what makes "does this section carry text" affordable inside the O(n^2) scan.
+    """
+    ends = [0]
+    for line in lines:
+        ends.append(ends[-1] + len(line) + 1)
+    return ends
+
+
+def find_signature_line(lines: list[str], after: int = -1) -> int | None:
+    """Where the signature block starts, or None.
+
+    Answered relative to `after` -- normally the last Item heading -- because
+    every filing lists SIGNATURES in its contents table too, and the first match
+    in the document is almost always that entry rather than the block itself.
+    """
+    for index in range(max(after + 1, 0), len(lines)):
+        stripped = lines[index].strip()
+        if _SIGNATURE_HEADING.match(stripped) or _SIGNATURE_SENTENCE.search(stripped):
+            return index
+    return None
 
 
 def find_sections(text: str) -> list[Section]:
@@ -293,17 +480,26 @@ def find_sections(text: str) -> list[Section]:
     back to another strategy; a caller cannot detect an invented boundary, so
     this never guesses.
     """
+    lines = text.splitlines()
+    total_lines = len(lines)
     candidates = _candidates(text)
-    chain = _best_chain(candidates)
+    chain = _best_chain(candidates, _line_ends(lines))
     if not chain:
         return []
 
-    total_lines = len(text.splitlines())
-    lines = text.splitlines()
+    # AMENDMENT 2 (2026-08-18): the last Item section stops at the signature
+    # block instead of running to the end of the document. For the 12 filings
+    # that incorporate Item 8 by reference the financial statements are printed
+    # *after* the signatures, and absorbing them made CHTR and DGX carry half
+    # their chunks under "Item 16 Form 10-K Summary" -- a citation naming a
+    # section the text is not in.
+    signature = find_signature_line(lines, candidates[chain[-1]][0])
+    last_end = signature if signature is not None else total_lines
+
     sections = []
     for position, index in enumerate(chain):
         start, items, rest = candidates[index]
-        end = candidates[chain[position + 1]][0] if position + 1 < len(chain) else total_lines
+        end = candidates[chain[position + 1]][0] if position + 1 < len(chain) else last_end
         title = rest.lstrip(".-:—– \t").strip()
         if not title:
             # Filers such as CHTR, HON and PG put the title on its own line, and
@@ -328,5 +524,36 @@ def find_sections(text: str) -> list[Section]:
             title=title.rstrip("."),
             start_line=start,
             end_line=end,
+        ))
+
+    # What sits before the first Item heading is chunked too, on the same
+    # reasoning as the tail and with the same empty label. It is the cover page,
+    # the contents table and the forward-looking-statements notice -- outside
+    # the Item structure, genuinely un-Item-able, and dropping it silently cost
+    # MA 994 lines including the shares-outstanding and fiscal-year facts a
+    # reader is most likely to ask for.
+    head = candidates[chain[0]][0]
+    if head > 0:
+        sections.insert(0, Section(
+            item="",
+            covers=(),
+            title="",
+            start_line=0,
+            end_line=head,
+        ))
+
+    # The tail is chunked, never dropped: for CHTR, CTSH, DGX, QCOM and VICI it
+    # is the financial statements. It carries an empty item because labelling it
+    # `Item 8` would be an inference -- those filings do say in Item 8 that the
+    # statements appear later, but reading a label off that sentence is the
+    # class of prose-reading detector this project already retired once. An
+    # empty label costs Item-level filtering; a wrong one costs the citation.
+    if signature is not None and signature < total_lines:
+        sections.append(Section(
+            item="",
+            covers=(),
+            title="",
+            start_line=signature,
+            end_line=total_lines,
         ))
     return sections
