@@ -1141,6 +1141,50 @@ recall specifically, which is the arm the hybrid arm is measured against — so
 the error would flatter the baseline and understate hybrid's margin. Stated for
 completeness; the constraint is what makes it moot.
 
+**THE QUERY SET IS FROZEN — 2026-08-20, before any arm ran and before any
+retrieval number existed.** Published here rather than only in the artifact,
+because "the set that was reviewed is the set that was measured" is a claim
+about this project's method and a reader should be able to check it.
+
+The set itself stays out of this repo — gold is `(accession, quoted span)`, so
+the file holds verbatim filing text. What is committed is
+**`backend/corpus/query-set-freeze.json`**: one sha256 per query and one digest
+over all 65, with strata, accessions and items. Identifiers and hashes, never
+text — the same rule that lets `corpus/manifest.json` carry a sha256 for every
+filing while no filing enters the repo.
+
+    set digest  a35b2634f47608fdee4d1dbd612e6d6d56f64d1e261ce85c4e6bb00d5cbde16a
+
+- **Each query's hash covers its whole record**, canonicalised as
+  `json.dumps(sort_keys=True, ensure_ascii=False, separators=(",", ":"))`.
+  Hashing a chosen subset would let the ticker or the item a reviewer read
+  change with every hash still matching.
+- **No normalization is applied before hashing.** The hit definition above
+  collapses whitespace and folds quotes *at match time*, on a copy; a freeze
+  that reused it would accept an edited span as unchanged.
+- **The set digest is over `query_id + "  " + sha256` lines, sorted by id.**
+  Reordering the file is therefore not a change to the set — scoring keys by
+  `query_id` too — while adding, removing or editing any query is.
+- **No arm may run against a set that no longer matches.** Stated as a rule
+  rather than as a description: the arms are not written yet, and this is fixed
+  now precisely so it cannot be relaxed once they are. The check
+  (`query_freeze.refuse_unless_frozen`) exists and names the query that moved
+  rather than reporting a bare digest mismatch.
+
+**Stated because it is the weak link, not despite it: 0 of the 65 approvals are
+bound to their text mechanically.** The card-by-card review log records
+`query_id` and `verdict` and no query text, so nothing in it can demonstrate
+that a verdict was cast against the text now on disk — and a verdict did go
+stale twice during review, caught by a person remembering rather than by any
+check. The freeze therefore records a **dated human attestation** covering all
+65, labelled in the artifact as `"kind": "human attestation, not a mechanical
+verification"`. Decisions made after 2026-08-20 record the query hash and are
+verified mechanically; the attestation covers only what predates that.
+
+*Direction of effect:* none on any number. The freeze changes no scoring rule.
+It fixes which 65 queries the published numbers are computed over, and makes a
+later edit visible instead of silent.
+
 **5. Reporting.**
 
 - **recall@1 and recall@5**, per arm, per stratum, each with a Wilson interval,

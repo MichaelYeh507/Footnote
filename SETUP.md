@@ -61,6 +61,32 @@ To exclude it explicitly:
 python -m pytest -m "not live"
 ```
 
+## 3a. The frozen query set
+
+`backend/corpus/query-set-freeze.json` is the retrieval query set's freeze, written
+2026-08-20 before any arm ran. It holds one sha256 per query and one digest over all 65,
+plus strata, accessions and items — **identifiers and hashes, never query text and never a
+gold span**, because gold is `(accession, quoted span)` and the set itself is data that
+lives beside the filings rather than in this repo. `EVALUATION-SPEC.md` records what the
+hashes cover and why.
+
+The file is self-checkable without the query set: re-digest its own rows — one
+`query_id + "  " + sha256` line each, sorted by `query_id`, then sha256 of the result —
+and compare against `set_sha256`.
+
+With the query set present (`RAG_FILINGS_DIR` set), the full check is:
+
+```bash
+cd backend
+python scripts/freeze_queries.py --verify
+```
+
+It exits non-zero and names any query whose text has changed since the freeze. The same
+check is called by `query_freeze.refuse_unless_frozen`, which every retrieval arm is
+required to run before retrieving anything — so a set edited after the freeze fails loudly
+instead of quietly changing what was measured. (The arms themselves are not written yet;
+that requirement is fixed now so it cannot be relaxed later.)
+
 ## 4. Database schema
 
 `backend/schema.sql` recreates the current schema on a fresh Supabase project — apply it in
