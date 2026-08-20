@@ -57,6 +57,13 @@ backend/corpus/label-backups/
 backend/corpus/*.txt
 backend/corpus/*.htm
 backend/corpus/*.html
+# The materialised chunk store: 11,621 records holding 22.9 MB of filing text.
+# corpus_paths.chunks_dir() puts it beside the filings, outside the repo; this
+# covers the repo-relative default, which is what a run without RAG_FILINGS_DIR
+# writes. It sat untracked and unignored while the query set beside it was
+# covered -- the same "untracked is not protected" hazard, one directory over.
+backend/corpus/chunks/
+
 # The 65-query retrieval set. Gold is (accession, quoted span), so the file
 # holds verbatim filing text -- corpus content reaching the public repo past
 # every guard aimed at corpus/filings/. It is also the input to every Phase 3

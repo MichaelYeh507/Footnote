@@ -140,6 +140,21 @@ def test_queries_dir_is_read_at_call_time_not_at_import(monkeypatch, tmp_path):
     assert corpus_paths.queries_dir() != first
 
 
+def test_gitignore_covers_the_in_repo_default_chunk_store():
+    """The same hazard as the query set, one directory over, and older.
+
+    `chunks_dir()` derives from `filings_dir()` too, so a run without
+    RAG_FILINGS_DIR set writes the store -- 11,621 records, 22.9 MB of filing
+    text -- to `backend/corpus/chunks/`. That was untracked and unignored while
+    the query set beside it was covered.
+    """
+    patterns = _gitignore_patterns()
+    for candidate in ("backend/corpus/chunks/chunks.jsonl",
+                      "backend/corpus/chunks/chunks-20260819.jsonl"):
+        assert _ignored(candidate, patterns), (
+            f"{candidate} is not covered by any .gitignore pattern")
+
+
 def test_gitignore_covers_the_in_repo_default_query_set():
     """The default is repo-relative, so the default lands *inside* the repo.
 
