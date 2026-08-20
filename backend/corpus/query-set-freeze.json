@@ -1,0 +1,765 @@
+{
+ "manifest_version": 1,
+ "frozen_at": "2026-08-20",
+ "set_sha256": "a35b2634f47608fdee4d1dbd612e6d6d56f64d1e261ce85c4e6bb00d5cbde16a",
+ "file_sha256": "300c00b43f17181d4b4121427493e385778e336d4f15d898e0d583ad03284700",
+ "composition": {
+  "queries": 65,
+  "answerable": 50,
+  "strata": {
+   "conceptual": 25,
+   "exact_entity": 25,
+   "unanswerable": 15
+  },
+  "distinct_accessions": 44,
+  "distinct_tickers": 22,
+  "gold_locations": 50,
+  "items": {
+   "1": 17,
+   "1A": 7,
+   "7": 14,
+   "8": 11,
+   "front matter": 1
+  },
+  "duplicate_span_advisories": 11
+ },
+ "approvals": {
+  "source": "review-decisions.jsonl",
+  "decided": 65,
+  "approved": 65,
+  "bound_by_hash": 0,
+  "unbound_by_hash": [
+   "q001",
+   "q002",
+   "q003",
+   "q004",
+   "q005",
+   "q006",
+   "q007",
+   "q008",
+   "q009",
+   "q010",
+   "q011",
+   "q012",
+   "q013",
+   "q014",
+   "q015",
+   "q016",
+   "q017",
+   "q018",
+   "q019",
+   "q020",
+   "q021",
+   "q022",
+   "q023",
+   "q024",
+   "q025",
+   "q026",
+   "q027",
+   "q028",
+   "q029",
+   "q030",
+   "q031",
+   "q032",
+   "q033",
+   "q034",
+   "q035",
+   "q036",
+   "q037",
+   "q038",
+   "q039",
+   "q040",
+   "q041",
+   "q042",
+   "q043",
+   "q044",
+   "q045",
+   "q046",
+   "q047",
+   "q048",
+   "q049",
+   "q050",
+   "q051",
+   "q052",
+   "q053",
+   "q054",
+   "q055",
+   "q056",
+   "q057",
+   "q058",
+   "q059",
+   "q060",
+   "q061",
+   "q062",
+   "q063",
+   "q064",
+   "q065"
+  ],
+  "attestation": {
+   "date": "2026-08-20",
+   "by": "owner",
+   "set_sha256": "a35b2634f47608fdee4d1dbd612e6d6d56f64d1e261ce85c4e6bb00d5cbde16a",
+   "covers": 65,
+   "text": "I reviewed these 65 queries card by card and affirm those approvals apply to the set at this digest.",
+   "kind": "human attestation, not a mechanical verification",
+   "why": "The decision log predates hash recording: it stores query_id and verdict and no query text, so nothing in it can show these verdicts were cast against this text. Decisions made after 2026-08-20 record the query hash and are checked mechanically."
+  }
+ },
+ "queries": [
+  {
+   "query_id": "q001",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000277135-25-000010"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "5e984f87794991b7b8632cd5d086260521e86d5fe1937f9e5952dcaa58e4fcac"
+  },
+  {
+   "query_id": "q002",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000059478-26-000013"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "311c60121c748dcc7c68da78f4028d3af27fd38e25dc98f11e6e966255c33f12"
+  },
+  {
+   "query_id": "q003",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001705696-25-000033"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "05a278db1e378356abbfd390b4b82a243c7da722b4e12fa8e418664be46a7884"
+  },
+  {
+   "query_id": "q004",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000092122-25-000018"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "5e6dcae5e98b21b70bb2f51cc05d7d8a1e4ae0ff780bb0fc831b836f577797f4"
+  },
+  {
+   "query_id": "q005",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000277135-26-000011"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "78136603c9c2811c0416ca80a27cf4fc4ca490621fc991b0838f8c1deec1736c"
+  },
+  {
+   "query_id": "q006",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000059478-25-000067"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "e2dcc304021695dbae7946eba8dc8cb829a84ff675b32fb06a16d6e2eb59e9fd"
+  },
+  {
+   "query_id": "q007",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001705696-26-000034"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "9ecf55b22a88f0b554be66819b9e141e50bcd902d4f6c82525bb9c8e9dddd9c4"
+  },
+  {
+   "query_id": "q008",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000092122-26-000006"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "d01a7e722bbfa98fe82241b2cce94be7a8dbb27de7c8977cac35b1aef4662080"
+  },
+  {
+   "query_id": "q009",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "6d2c5d6b1ece4ee5d2c274b3a511402d623b83e56b3540cfd381543cbff8afe4"
+  },
+  {
+   "query_id": "q010",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "5d950a5e1f4e036b574443f7d5c890fa92dbacd48d7bf77216aa2744d645201d"
+  },
+  {
+   "query_id": "q011",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000804328-24-000075"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "e709874d3090e6fa0fbba1fa892db5726ae94d039e472e8b46594578c54e5164"
+  },
+  {
+   "query_id": "q012",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001289490-26-000011"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "efd8f763fe2e670ad1af7caf6567d708aec204d51cd2cc8fe90b07197fe4d9f1"
+  },
+  {
+   "query_id": "q013",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001751788-26-000018"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "1a6f83794687b722d7259d6799ef31f9705fffe724f66d4db0a9ab525c791b98"
+  },
+  {
+   "query_id": "q014",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001510295-26-000009"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "c3f5cc875de1cfc87fd6d3264e252a1dcda0c21c0143fc60c01a73d0fbe261d6"
+  },
+  {
+   "query_id": "q015",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001091667-25-000034"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "f6b7dcd4331c8089b594d1082793ff324a2108a2069b09d29388b49707d69a04"
+  },
+  {
+   "query_id": "q016",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000080661-25-000007"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "d4a6f057bcb1c9cfd8d8d14910abceded07eed13919b68cc3c84d134af831310"
+  },
+  {
+   "query_id": "q017",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000804328-25-000085"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "cf3c3762fc4559eb5dd81547da71cbcaf3b2e2fb10db80ac4128bdcad90ab95c"
+  },
+  {
+   "query_id": "q018",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000080661-26-000086"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "b74efd4add206d0547c660903cdd42f920f7dcc95a8afb28b26132cb6dd6ec9a"
+  },
+  {
+   "query_id": "q019",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001628280-25-009060"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "609044c9bf163784db9c8eaa1f9297881a1841a3992bb69985f4bb9d401b173d"
+  },
+  {
+   "query_id": "q020",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001751788-25-000012"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "071a659ed7893184f0ef1b50814f2aaf07d1ee7e68cb22cf626ff0fb3f063aa7"
+  },
+  {
+   "query_id": "q021",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001091667-26-000017"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "36218307added66d42ebffae67e023822844713125ae4f332be5c0afcfe251a2"
+  },
+  {
+   "query_id": "q022",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001510295-25-000012"
+   ],
+   "items": [
+    "1"
+   ],
+   "sha256": "88c0b2b94b20030fceaae88a98ccbca3b2b46e198e25e75d8d2318041439f25a"
+  },
+  {
+   "query_id": "q023",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "b8c6f7ac26b023c08427cb803541001764f846597441f17b8773174be2f66d8c"
+  },
+  {
+   "query_id": "q024",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "b773e179a3d366ce0f6e61e2cc9e6d5ffd825ecda0912e68cc5cef00c1e5a8fb"
+  },
+  {
+   "query_id": "q025",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001058290-26-000008"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "a2a079053fb32aa4ffaea7b8f9b015fc4df4ce2754a9a09bf7fc69d53260ade1"
+  },
+  {
+   "query_id": "q026",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001174922-25-000039"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "eb0e0800ab478931ad588e67039b2b5320b270013f5678bbfefa44be424161b0"
+  },
+  {
+   "query_id": "q027",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001193125-26-062321"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "a702f1b5737c957316124726398cab42d42d26f1ffefa4b0dcb8a38d1d3f1363"
+  },
+  {
+   "query_id": "q028",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001022079-26-000015"
+   ],
+   "items": [
+    ""
+   ],
+   "sha256": "0a200c853360f8575e05105e0a1130288081c28dbf6e0fc8a041fb784988a532"
+  },
+  {
+   "query_id": "q029",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000773840-25-000010"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "61c571d5e254629504829c51b98518adbe19a5d6bf449f57d59c17a120c2c5de"
+  },
+  {
+   "query_id": "q030",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001058290-25-000017"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "a8774edc1b9e3af7d2f7ca374793701cc8bcf42192d247d4dd9839454bb9f8b9"
+  },
+  {
+   "query_id": "q031",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001174922-26-000013"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "e17ae259125bffa80aa3ca9348838854476e4e11e81822c053586d1c1c9b7ef7"
+  },
+  {
+   "query_id": "q032",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000950170-25-025223"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "b8c9499513f2cf2e539a3700cbd1754a2a5af9486afb85cbbb8d2500d1ca8f61"
+  },
+  {
+   "query_id": "q033",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001022079-25-000044"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "296e9773339b302cdaa8d516320a9c36401b05cf4750e0e20f85dc927a4bb27b"
+  },
+  {
+   "query_id": "q034",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000773840-26-000013"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "61c6bdb8aad78c5dc3d8a4f3f78c72f14367d4cbe2c7eba73cbb30845f4397c4"
+  },
+  {
+   "query_id": "q035",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "99fc71d1746f6b30242d818070b0e0d5a4667623dd8ea1a3b2cb816a03fd7092"
+  },
+  {
+   "query_id": "q036",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "f42d0e9cb0d840787d46cff217af18798c43b04d72a3b2bf9e7ad227c6709688"
+  },
+  {
+   "query_id": "q037",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "7aa0a36828b308f2caa8d4ed822e41e5e62ca8a2dbfc2800ccd1d09fc5293055"
+  },
+  {
+   "query_id": "q038",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "57f8e3d585953032ba51b8f213f86fa6a013d8dcb38150d2eb0ae5de3c9d249a"
+  },
+  {
+   "query_id": "q039",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001141391-26-000013"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "f4ad5a93fd61cf0b5a51c530c0766141f92444e496d469f42ac8ce36784cda73"
+  },
+  {
+   "query_id": "q040",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001748790-25-000023"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "e2930c7237a080da084bc3d9fa27eff561c6d05a6060114599f4b1b37a0f0881"
+  },
+  {
+   "query_id": "q041",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000080424-26-000103"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "5b825b7f0b2479fb6ec99223575fc1c21a49a261cca4caa1940997e9024e1327"
+  },
+  {
+   "query_id": "q042",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001193125-26-056485"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "75ed9f62311a716dbe9642e49baaeb84cd952bbb41a5f54e4d50abfc86bff3dc"
+  },
+  {
+   "query_id": "q043",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001751008-26-000010"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "9e9755a5b689951a376ba7a4c17177dfee0b0cf717360850994e42d2e0d719db"
+  },
+  {
+   "query_id": "q044",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001141391-25-000011"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "4814aeaa14b53b1efcb95a89967edb8487dc71942be645fc83830461f4318f22"
+  },
+  {
+   "query_id": "q045",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001748790-24-000022"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "64105cf8e8a42a3b8f96eb925f02180bdd1102f536f8e5acaa72ee2acfe51b7d"
+  },
+  {
+   "query_id": "q046",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000080424-25-000076"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "1229bd45042c1c652fd1dc9e3e9005b7d26d992d41b460a01b9184fd27119852"
+  },
+  {
+   "query_id": "q047",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000950170-25-022844"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "87d2a2f3c63cddee01357fb190edaf189e21b0110d067bd37909b755bb82ece3"
+  },
+  {
+   "query_id": "q048",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001751008-25-000018"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "e0edef46ceacfbaf14b1ef1c102bfd6b013c461c7bc856dec94ecc62fc19b7c0"
+  },
+  {
+   "query_id": "q049",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "37ff848c9339486bd87fd6823decfc939fa027dc9d8c93e8c1f28f8916dfa3d0"
+  },
+  {
+   "query_id": "q050",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "dae92ef82040a5af9e305e3ce4f889648a61eea6ab4a5e250eda783c83f9cd63"
+  },
+  {
+   "query_id": "q051",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "5e35ef904886fd03b2c662a7c52ae9c88eab3e991d1822814d439d7268b3f742"
+  },
+  {
+   "query_id": "q052",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "e4bcc4b1709ed5d8b5346b417b6603bd0efe1ea845f9f4fb83dcf4b90a2526c7"
+  },
+  {
+   "query_id": "q053",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001004980-25-000010"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "24f21a99815fdc1ef87572467f756018290627c8a6e4402805bda59b3e66137c"
+  },
+  {
+   "query_id": "q054",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001944048-26-000030"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "c11cffef5bbb8b062742896da07dce1ba28c3cfe7e5a75198744d6cf7ae7b343"
+  },
+  {
+   "query_id": "q055",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001944048-25-000033"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "ab46b8a84e4bb7f47181e254970a67315559b4a88d7927a434d87f7aa5d24170"
+  },
+  {
+   "query_id": "q056",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0001004980-26-000009"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "d08379f3e38e987d80332b9087a0ed0badc14f29a02539665f578fde9ed98f09"
+  },
+  {
+   "query_id": "q057",
+   "stratum": "exact_entity",
+   "accessions": [
+    "0000092122-26-000006"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "f956fa15adb553993d04f1ba899cbb4e5c046486ca4768b0939b385a31d71cfc"
+  },
+  {
+   "query_id": "q058",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001004980-25-000010"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "f4b6bc08aa3d5ff458c77031f5b60a079e08616a29c486181862f693d3011d7c"
+  },
+  {
+   "query_id": "q059",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001004980-26-000009"
+   ],
+   "items": [
+    "8"
+   ],
+   "sha256": "5d7ed29bae526a9f984b4a79d0f6a289e867736d249c35355871e91a033333b9"
+  },
+  {
+   "query_id": "q060",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001944048-25-000033"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "ae32534d53a0de57edb09978a8789d87880772130c2c44a63b776abb0ef8219c"
+  },
+  {
+   "query_id": "q061",
+   "stratum": "conceptual",
+   "accessions": [
+    "0001944048-26-000030"
+   ],
+   "items": [
+    "7"
+   ],
+   "sha256": "8abcdfb7a0e3ca4d94dfb1c39f7cecedcd8dad7e803980b6ae216bc375f2846b"
+  },
+  {
+   "query_id": "q062",
+   "stratum": "conceptual",
+   "accessions": [
+    "0000092122-25-000018"
+   ],
+   "items": [
+    "1A"
+   ],
+   "sha256": "c0b8ca85bea8276933758760847f402aec79f33bd8552f18abae628031c1b78d"
+  },
+  {
+   "query_id": "q063",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "bfc761086f268c42ef5a0077a371dd3780362f9a2330e9628c4db23694527a24"
+  },
+  {
+   "query_id": "q064",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "cf0e83cbc05ef604a69f55f9a22de2d8756845faa18edb4d30c6d209eb8965e6"
+  },
+  {
+   "query_id": "q065",
+   "stratum": "unanswerable",
+   "accessions": [],
+   "items": [],
+   "sha256": "f64276652cce77f9c2c07d3ed34bde645a89315afdb63cf14ad26f439e40d6d2"
+  }
+ ]
+}
