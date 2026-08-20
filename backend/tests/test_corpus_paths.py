@@ -106,6 +106,84 @@ def test_backup_dir_can_be_overridden(monkeypatch, tmp_path):
     assert corpus_paths.backup_dir() == tmp_path / "b"
 
 
+def test_queries_dir_follows_the_data_root_not_the_repo(monkeypatch, tmp_path):
+    """The query set is data: gold spans are verbatim filing text.
+
+    Gold is `(accession, quoted span)`, so the file carries quoted passages out
+    of filings whose content the repo never commits. It belongs beside the
+    filings and the chunk store, under the same rule as labels and predictions.
+    """
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "data" / "filings"))
+    assert corpus_paths.queries_dir() == tmp_path / "data" / "queries"
+
+
+def test_the_three_data_locations_are_distinct_siblings(monkeypatch, tmp_path):
+    """One data root, three directories, no two of them the same place.
+
+    Pinned because the cheap wrong implementations are `filings_dir() /
+    "queries"` and returning `chunks_dir()` outright, and both put the query
+    set somewhere a reader would still find it -- the failure would be a wrong
+    location rather than an error.
+    """
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "data" / "filings"))
+    locations = [corpus_paths.filings_dir(),
+                 corpus_paths.chunks_dir(),
+                 corpus_paths.queries_dir()]
+    assert len(set(locations)) == 3, locations
+    assert {p.parent for p in locations} == {tmp_path / "data"}
+
+
+def test_queries_dir_is_read_at_call_time_not_at_import(monkeypatch, tmp_path):
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "a" / "filings"))
+    first = corpus_paths.queries_dir()
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "b" / "filings"))
+    assert corpus_paths.queries_dir() != first
+
+
+def test_gitignore_covers_the_in_repo_default_query_set():
+    """The default is repo-relative, so the default lands *inside* the repo.
+
+    `queries_dir()` derives from `filings_dir()`, whose default is
+    `backend/corpus/filings` -- so anyone running without RAG_FILINGS_DIR set
+    writes the query set to `backend/corpus/queries/`, untracked and, without
+    this pattern, unignored. That is the exact state README-TARGET.md sat in
+    for a day: untracked is not protected.
+    """
+    patterns = _gitignore_patterns()
+    for candidate in ("backend/corpus/queries/queries.jsonl",
+                      "backend/corpus/queries/queries-draft-batch1.jsonl"):
+        assert _ignored(candidate, patterns), (
+            f"{candidate} is not covered by any .gitignore pattern")
+
+
+def _gitignore_patterns():
+    """The live patterns, comments and blank lines dropped."""
+    gitignore = BACKEND.parent / ".gitignore"
+    return [line.strip() for line in
+            gitignore.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")]
+
+
+def _ignored(candidate, patterns):
+    """Whether git would ignore `candidate`, for the two pattern shapes used here.
+
+    A glob on the path, or a trailing-slash directory pattern covering
+    everything beneath it. `fnmatch` alone gets the second case wrong --
+    "backend/corpus/queries/" never matches a file inside it -- and a test that
+    silently answers False would report the protection missing when it is
+    present, or pass a rewrite that removed it.
+    """
+    import fnmatch
+
+    for pattern in patterns:
+        if pattern.endswith("/"):
+            if candidate.startswith(pattern):
+                return True
+        elif fnmatch.fnmatch(candidate, pattern):
+            return True
+    return False
+
+
 def test_gitignore_covers_label_backups_by_glob():
     """An exact-path ignore rule does not cover a timestamped sibling.
 
@@ -113,17 +191,11 @@ def test_gitignore_covers_label_backups_by_glob():
     grepping for a literal line, so reformatting `.gitignore` cannot make this
     pass while the protection is gone.
     """
-    import fnmatch
-
-    gitignore = BACKEND.parent / ".gitignore"
-    patterns = [line.strip() for line in
-                gitignore.read_text(encoding="utf-8").splitlines()
-                if line.strip() and not line.lstrip().startswith("#")]
-
+    patterns = _gitignore_patterns()
     for candidate in ("backend/corpus/labels-before-relabel-20260817-191821.jsonl",
                       "backend/corpus/labels.jsonl",
                       "backend/corpus/predictions-old.jsonl"):
-        assert any(fnmatch.fnmatch(candidate, p) for p in patterns), (
+        assert _ignored(candidate, patterns), (
             f"{candidate} is not covered by any .gitignore pattern")
 
 

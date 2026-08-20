@@ -57,3 +57,12 @@ backend/corpus/label-backups/
 backend/corpus/*.txt
 backend/corpus/*.htm
 backend/corpus/*.html
+# The 65-query retrieval set. Gold is (accession, quoted span), so the file
+# holds verbatim filing text -- corpus content reaching the public repo past
+# every guard aimed at corpus/filings/. It is also the input to every Phase 3
+# number, which puts it in the same class as labels and predictions.
+#
+# corpus_paths.queries_dir() puts it beside the filings, outside the repo. This
+# covers the repo-relative default, which is the case that bites when someone
+# runs without RAG_FILINGS_DIR set. "Untracked" is not "protected".
+backend/corpus/queries/

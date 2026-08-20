@@ -83,3 +83,24 @@ def chunks_dir() -> pathlib.Path:
     root, one place a reader has to agree on, and no third variable to set.
     """
     return filings_dir().parent / "chunks"
+
+
+def queries_dir() -> pathlib.Path:
+    """Where the 65-query retrieval set goes.
+
+    The query set is data for a reason stronger than convention: gold is an
+    `(accession, quoted span)` pair, so the file *contains verbatim filing
+    text* -- one quoted passage per location, from filings the repo commits
+    identifiers for and never content. Committing the set would put corpus
+    text in the public repo through the side door, past every guard aimed at
+    `corpus/filings/`.
+
+    It is also the input to every number Phase 5 publishes, which puts it in
+    the same class as `labels.jsonl` and `predictions.jsonl`: evaluation data,
+    never source.
+
+    Derived from the filings location for the same reason as `backup_dir` and
+    `chunks_dir` -- one data root, no fourth variable to set and no fourth
+    place to disagree about.
+    """
+    return filings_dir().parent / "queries"
