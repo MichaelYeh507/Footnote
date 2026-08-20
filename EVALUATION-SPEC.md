@@ -1161,6 +1161,28 @@ completeness; the constraint is what makes it moot.
 - **Abstention is not scored here.** The 15 unanswerable queries carry no gold
   and recall is undefined for them. Abstention is a property of the QA layer and
   is measured against it in Phases 4 and 5, never against a ranked list.
+- **Stated precisely, because the word is loose: "unanswerable" means not
+  answerable from the 44 filings in this corpus, not unknowable.** Several of
+  the 15 have publicly available answers — for **7 of the 15** the filing
+  incorporates the answer by reference to the issuer's proxy statement, a real
+  SEC filing deliberately outside a 10-K-only corpus, and the other **8 of the
+  15** ask for a subject or a granularity no 10-K carries. That is the point:
+  the failure being tested
+  is a model answering from parametric memory rather than from retrieved
+  documents, and a question whose answer the model may well "know" is the
+  sharpest available test of grounding.
+
+  *Added 2026-08-20, after the query set was written and approved, and still
+  before any retrieval number existed.* It changes no scoring rule — the 15
+  carry no gold under the rule above and enter no recall denominator either
+  way. It is recorded because the word was never defined here, and an
+  undefined "unanswerable" invites a reader to take a published abstention
+  rate as a claim about what is knowable. The 7/8 split is counted from the
+  set, not estimated; the count survives contact with the corpus only because
+  **"incorporated by reference" was checked against each whole filing rather
+  than assumed** — PG's Item 10 names two directors outright before
+  incorporating the rest, and VICI's Item 9B states executive pay outright
+  while its Item 11 points at the proxy.
 
 **Cost, stated rather than buried.** One embedding model, one `tsvector`
 configuration, one RRF constant. This project therefore reports retrieval
