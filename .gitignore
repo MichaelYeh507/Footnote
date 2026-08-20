@@ -73,3 +73,10 @@ backend/corpus/chunks/
 # covers the repo-relative default, which is the case that bites when someone
 # runs without RAG_FILINGS_DIR set. "Untracked" is not "protected".
 backend/corpus/queries/
+
+# The three arms' ranked lists and their provenance. Output over corpus text
+# and the input to every retrieval number, which puts it in the same class as
+# corpus/predictions.jsonl. corpus_paths.retrieval_dir() writes it beside the
+# filings; this covers the repo-relative default a run without RAG_FILINGS_DIR
+# would land on.
+backend/corpus/retrieval/

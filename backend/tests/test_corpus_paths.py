@@ -117,8 +117,15 @@ def test_queries_dir_follows_the_data_root_not_the_repo(monkeypatch, tmp_path):
     assert corpus_paths.queries_dir() == tmp_path / "data" / "queries"
 
 
-def test_the_three_data_locations_are_distinct_siblings(monkeypatch, tmp_path):
-    """One data root, three directories, no two of them the same place.
+def test_retrieval_dir_follows_the_data_root_not_the_repo(monkeypatch, tmp_path):
+    """The ranked lists are output over corpus text, in the same class as
+    corpus/predictions.jsonl, and are never committed."""
+    monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "data" / "filings"))
+    assert corpus_paths.retrieval_dir() == tmp_path / "data" / "retrieval"
+
+
+def test_the_four_data_locations_are_distinct_siblings(monkeypatch, tmp_path):
+    """One data root, four directories, no two of them the same place.
 
     Pinned because the cheap wrong implementations are `filings_dir() /
     "queries"` and returning `chunks_dir()` outright, and both put the query
@@ -128,8 +135,9 @@ def test_the_three_data_locations_are_distinct_siblings(monkeypatch, tmp_path):
     monkeypatch.setenv("RAG_FILINGS_DIR", str(tmp_path / "data" / "filings"))
     locations = [corpus_paths.filings_dir(),
                  corpus_paths.chunks_dir(),
-                 corpus_paths.queries_dir()]
-    assert len(set(locations)) == 3, locations
+                 corpus_paths.queries_dir(),
+                 corpus_paths.retrieval_dir()]
+    assert len(set(locations)) == 4, locations
     assert {p.parent for p in locations} == {tmp_path / "data"}
 
 
@@ -167,6 +175,22 @@ def test_gitignore_covers_the_in_repo_default_query_set():
     patterns = _gitignore_patterns()
     for candidate in ("backend/corpus/queries/queries.jsonl",
                       "backend/corpus/queries/queries-draft-batch1.jsonl"):
+        assert _ignored(candidate, patterns), (
+            f"{candidate} is not covered by any .gitignore pattern")
+
+
+def test_gitignore_covers_the_in_repo_default_retrieval_output():
+    """Third time for the same hazard, so it is checked the same way.
+
+    A run without RAG_FILINGS_DIR writes the ranked lists to
+    `backend/corpus/retrieval/`. They hold chunk ids and scores rather than
+    filing text, but they are the input to every published retrieval number and
+    committing them would put the shape of the answer in the repo before the
+    numbers are agreed.
+    """
+    patterns = _gitignore_patterns()
+    for candidate in ("backend/corpus/retrieval/rankings-20260820-1200.jsonl",
+                      "backend/corpus/retrieval/provenance-20260820-1200.json"):
         assert _ignored(candidate, patterns), (
             f"{candidate} is not covered by any .gitignore pattern")
 

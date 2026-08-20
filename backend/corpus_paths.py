@@ -104,3 +104,18 @@ def queries_dir() -> pathlib.Path:
     place to disagree about.
     """
     return filings_dir().parent / "queries"
+
+
+def retrieval_dir() -> pathlib.Path:
+    """Where the three arms' ranked lists and their provenance go.
+
+    Output, not source, and it is the Phase 3 analogue of
+    `corpus/predictions.jsonl`: model output over corpus text, and the input to
+    every retrieval number this project publishes. A ranked list is also the
+    artifact a later reader would have to trust was not regenerated to suit a
+    result, which is the second reason it is dated and kept, not committed.
+
+    Derived from the filings location like every other data directory, so there
+    is still one root and no fifth variable.
+    """
+    return filings_dir().parent / "retrieval"
