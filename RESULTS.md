@@ -1,4 +1,11 @@
-# Results — Phase 2 extraction accuracy
+# Results
+
+Two measurements, reported in the order they were made. **Phase 2 —
+extraction accuracy**, measured 2026-08-18, runs from *What was measured*
+below through *Reproduction*; that text is unchanged from its original
+publication and no number in it has been recomputed or restated. **Phase 3 —
+retrieval**, measured 2026-08-20, follows under its own heading and carries
+its own limitations and reproduction notes.
 
 Measured 2026-08-18. This document reports outcomes. Every rule that moves a
 number here — issuer selection, the label schema, the matching spec, the
@@ -260,3 +267,369 @@ sha256, and unless labels and predictions each cover the 351-pair grid
 exactly. Labels and predictions are data, not source; they are gitignored
 and never committed — this document publishes the aggregates and the failure
 cases, not the datasets.
+
+---
+
+## Phase 3 — retrieval
+
+Measured 2026-08-20. Three arms — sparse-only, dense-only, hybrid — over one
+frozen query set, at one configuration. Everything that moves a number here
+was pre-registered and **published before either index existed and before a
+single vector was computed**: the embedder and its dimensions, the `tsvector`
+configuration, the OR-of-terms decision, `ts_rank_cd` normalization 0,
+`hnsw.ef_search`, RRF `k = 60`, the fusion depth, the tie-break, and — the
+one everything else rests on — what counts as a hit. All of it is in
+`EVALUATION-SPEC.md`'s appendix *retrieval parameters and the hit
+definition*, dated 2026-08-19, with AMENDMENTS 3, 4 and 5 each dated before
+any query was written.
+
+That ordering is the claim this section is worth reading for, and it is
+checkable rather than asserted: the appendix, the query-set freeze, the three
+arms, the runner and the entire scoring path were public commits **before the
+first query was embedded**. No parameter has been adjusted since the numbers
+existed, and none will be. A `k` chosen after seeing recall@k is a dial, and
+no published number would reveal that it had been turned.
+
+### What was measured
+
+**65 queries, 50 of them answerable**, written blind to retrieval output —
+reading filings and the chunk store to write a query is permitted, reading
+what a retriever returns is not. The one prior exposure to retriever output
+is disclosed in `EVALUATION-SPEC.md` along with the constraint it imposed on
+the set. Stratified **25 exact-entity + 25 conceptual** (AMENDMENT 3), plus
+**15 unanswerable**.
+
+**The 15 unanswerable queries carry no gold and enter no recall
+denominator.** Recall is undefined for them. They were run through all three
+arms and their rankings recorded, because abstention is a property of the QA
+layer and Phases 4 and 5 will measure it against what the retriever actually
+put in front of that layer rather than against a reconstruction. **No
+abstention rate is reported here**; a ranked list cannot abstain.
+
+The set was frozen before any arm ran, at set digest
+`a35b2634f47608fdee4d1dbd612e6d6d56f64d1e261ce85c4e6bb00d5cbde16a`
+(`backend/corpus/query-set-freeze.json`, committed — ids, strata,
+accessions, items and hashes, never a query and never a span). Every arm
+calls `query_freeze.refuse_unless_frozen` before retrieving anything.
+Stated because it is the weak link: **0 of the 65 approvals are bound to
+their text mechanically**, and the freeze therefore records a dated human
+attestation, labelled in the artifact as an attestation and not as a
+mechanical verification.
+
+Corpus: **11,621 chunks over 44 of 44 filings, 4,890,354 tokens**, every row
+carrying both a generated `tsvector` (GIN) and a 1,536-dimension embedding
+(HNSW), zero NULLs of either. Both arms read the same `text` column. **No
+metadata filtering** — every query searches all 11,621 chunks in every arm.
+
+Gold is a **document location — (accession, quoted span)** — never a chunk
+id, and the gold chunk set is derived from the store at scoring time. Gold
+sets in this run are **min 1, median 1, max 2 chunks**, so the task is
+literally "find one chunk in 11,621". Under AMENDMENT 5, a gold span that
+also appears in another filing draws a non-blocking advisory, and the count
+is published as required: **11 of the 50 answerable queries are flagged.**
+Those are the FY2024/FY2025 boilerplate pairs no text-only retriever can
+distinguish, and they affect all three arms identically.
+
+Run `20260820-153615`. Query-embedding digest
+`4ce8c0f86d15d6dc5581f256b6aba18b9bcb1aba0398a8111e6d849db57e34da`;
+`hnsw.ef_search` applied and read back as **100**, `hnsw.iterative_scan`
+off. Intervals are 95% Wilson, the same `evaluation/wilson.py` the Phase 2
+numbers use.
+
+### recall@5, per arm per stratum
+
+| arm | exact-entity (n=25) | conceptual (n=25) | pooled (n=50) |
+|---|---|---|---|
+| sparse | 9/25 = 0.360 [0.202, 0.555] | 1/25 = 0.040 [0.007, 0.195] | 10/50 = 0.200 [0.112, 0.330] |
+| dense | 14/25 = 0.560 [0.371, 0.733] | 8/25 = 0.320 [0.172, 0.516] | 22/50 = 0.440 [0.312, 0.577] |
+| hybrid | 16/25 = 0.640 [0.445, 0.798] | 2/25 = 0.080 [0.022, 0.250] | 18/50 = 0.360 [0.241, 0.499] |
+
+### recall@1, per arm per stratum
+
+| arm | exact-entity (n=25) | conceptual (n=25) | pooled (n=50) |
+|---|---|---|---|
+| sparse | 5/25 = 0.200 [0.089, 0.391] | 0/25 = 0.000 [0.000, 0.133] | 5/50 = 0.100 [0.043, 0.214] |
+| dense | 4/25 = 0.160 [0.064, 0.347] | 1/25 = 0.040 [0.007, 0.195] | 5/50 = 0.100 [0.043, 0.214] |
+| hybrid | 5/25 = 0.200 [0.089, 0.391] | 0/25 = 0.000 [0.000, 0.133] | 5/50 = 0.100 [0.043, 0.214] |
+
+**Precisely what these are.** Every answerable query has at least one gold
+chunk, so the quantity is a **hit rate at k** — the share of queries with at
+least one gold chunk in the arm's top k. It is called recall@k because that
+is the term the literature uses for it.
+
+### Which directions the data establishes, and which it does not
+
+The three arms see the same queries, so the comparison is **paired**. Three
+overlapping Wilson intervals invite a reader to conclude "no difference" when
+the paired data may say otherwise — so every arm-to-arm comparison is
+reported as the **discordant pairs (b, c)**, the queries one arm gets and the
+other misses, with a Wilson interval on `b/(b+c)`. That is the McNemar sign
+test.
+
+**A direction is claimed only where that interval excludes 0.5.** The two
+tables below are the whole comparison — all eighteen rows — split on exactly
+that rule and nothing else.
+
+*Recorded because it happened here rather than in the abstract:* the first
+internal write-up of this run read two directions straight off the point
+estimates, reporting *"hybrid loses to dense overall"* and *"lexical does not
+win the exact-entity stratum"* as findings. Both are in the undetermined
+table below. They were caught and corrected before publication, and the
+tables are split this way so the same mistake cannot be made by a reader of
+this page. The rule is one the spec had already written down, in its mirror
+image: the paired test exists because three overlapping Wilson intervals
+invite a reader to conclude *"no difference"* when the paired data may say
+otherwise — and a rule written to stop a wrong conclusion in one direction
+applies in both.
+
+In every row below, **b** counts the queries the **first-named** arm hits and
+the second misses, and **c** the reverse. Concordant queries — both hit, or
+both miss — carry no information about the direction and are excluded from
+b + c by construction.
+
+**One caveat, stated before the tables rather than after them, because it
+cuts against the rows this project would most like to lean on.** Every
+discordant denominator here is small — **16 is the largest, and b + c is
+below this project's n ≥ 25 reporting gate on all eighteen rows**. The
+scorer prints that warning on every line and it is not decoration. What the
+gate governs is **reporting b/(b+c) as a rate**: those point estimates are
+below it and should not be read as rates. What the interval test governs is
+whether a **direction** may be claimed, and a Wilson interval already prices
+in the n it was computed on — an interval of [0.646, 1.000] on 7 pairs
+excludes 0.5 honestly, and one of [0.487, 0.974] on 7 pairs does not. So
+"established" below means exactly *the interval excludes 0.5*, and it is not
+a claim that 7 discordant pairs are a large sample.
+
+**Established at 95% (interval excludes 0.5) — five of the eighteen:**
+
+| comparison | k | stratum | b, c | b/(b+c) | direction established |
+|---|---|---|---|---|---|
+| hybrid vs sparse | 5 | exact-entity | 7, 0 | 1.000 [0.646, 1.000] | hybrid > sparse |
+| hybrid vs sparse | 5 | pooled | 9, 1 | 0.900 [0.596, 0.982] | hybrid > sparse |
+| dense vs sparse | 5 | conceptual | 8, 1 | 0.889 [0.565, 0.980] | dense > sparse |
+| dense vs sparse | 5 | pooled | 14, 2 | 0.875 [0.640, 0.965] | dense > sparse |
+| hybrid vs dense | 5 | **conceptual** | 0, 6 | 0.000 [0.000, 0.390] | **dense > hybrid** |
+
+**Undetermined (interval contains 0.5) — the other thirteen:**
+
+| comparison | k | stratum | b, c | b/(b+c) | direction established |
+|---|---|---|---|---|---|
+| dense vs sparse | 5 | exact-entity | 6, 1 | 0.857 [**0.487**, 0.974] | none |
+| hybrid vs dense | 5 | exact-entity | 4, 2 | 0.667 [0.300, 0.903] | none |
+| hybrid vs sparse | 5 | conceptual | 2, 1 | 0.667 [0.208, 0.939] | none |
+| hybrid vs dense | 5 | **pooled** | 4, 8 | 0.333 [0.138, **0.609**] | **none** |
+| dense vs sparse | 1 | exact-entity | 3, 4 | 0.429 [0.158, 0.750] | none |
+| hybrid vs dense | 1 | exact-entity | 3, 2 | 0.600 [0.231, 0.882] | none |
+| hybrid vs sparse | 1 | exact-entity | 2, 2 | 0.500 [0.150, 0.850] | none |
+| dense vs sparse | 1 | conceptual | 1, 0 | 1.000 [0.207, 1.000] | none |
+| hybrid vs dense | 1 | conceptual | 0, 1 | 0.000 [0.000, 0.793] | none |
+| hybrid vs sparse | 1 | conceptual | 0, 0 | undefined — no discordant pairs; both arms miss all 25 | none |
+| dense vs sparse | 1 | pooled | 4, 4 | 0.500 [0.215, 0.785] | none |
+| hybrid vs dense | 1 | pooled | 3, 3 | 0.500 [0.188, 0.812] | none |
+| hybrid vs sparse | 1 | pooled | 2, 2 | 0.500 [0.150, 0.850] | none |
+
+**Nothing at k=1 is established for any pair** — nine rows, no direction.
+That is a property of paired testing at n=50 with a hit rate near 0.100, not
+something this run could have fixed by trying harder.
+
+**Two sentences that are true and are not the same sentence.** *Hybrid's
+pooled point estimate is lower than dense's, 18/50 = 0.360 [0.241, 0.499]
+against 22/50 = 0.440 [0.312, 0.577]* — that is arithmetic. *Hybrid loses to
+dense overall* — that is a direction, it requires the paired test, and **the
+paired test does not carry it**: the twelve discordant queries split 4 to 8,
+giving 0.333 [0.138, 0.609]. The honest statement is that this is the
+direction the data leans, and n=50 cannot establish it.
+
+### The pre-registered expectation, adjudicated clause by clause
+
+`EVALUATION-SPEC.md` §5 published an expectation before any of this existed:
+*"lexical wins stratum one, dense wins stratum two, hybrid wins overall, and
+the pooled number hides all of it. If that is not what the data says, publish
+what the data says."* This is that.
+
+| clause | what the data says | verdict |
+|---|---|---|
+| lexical wins exact-entity | sparse is last of three there, 9/25 = 0.360 [0.202, 0.555]; hybrid beats it on 7 discordant pairs to 0, 1.000 [0.646, 1.000] | **refuted, and the refutation is established** |
+| dense wins conceptual | dense 8/25 = 0.320 [0.172, 0.516] beats sparse on 8 discordant pairs to 1, and beats hybrid on 6 to 0; both established | **confirmed** |
+| hybrid wins overall | no established win over dense pooled; the point estimates lean the other way, and the discordant pairs split 4/12 → 0.333 [0.138, 0.609] | **not supported — and, at n=50, not refuted either** |
+| the pooled number hides all of it | pooling does hide hybrid's 16/25 = 0.640 [0.445, 0.798] on exact-entity against its 2/25 = 0.080 [0.022, 0.250] on conceptual; it does not hide dense > sparse or hybrid > sparse, both established pooled | **holds in part** |
+
+**So the expectation as a whole did not survive.** One clause of four is
+confirmed, one is refuted outright, one the data cannot support, and one
+holds only in part — and the part that holds does so for a different reason
+than the one predicted. The prediction was published in advance precisely so
+this paragraph could be written without anyone having to take its author's
+word for what was expected.
+
+### Why hybrid behaves this way — the mechanism, checked rather than assumed
+
+**RRF's agreement bonus is informative where both arms have signal and
+anti-informative where one of them is dead.** That is the shape of the whole
+result, and it is why "hybrid failed" is the wrong summary: hybrid produces
+the single best cell in the table, **16/25 = 0.640 [0.445, 0.798]** on
+exact-entity, and beats sparse 7 discordant pairs to 0 there.
+
+Where sparse has real signal — exact-entity, 9/25 = 0.360 [0.202, 0.555] —
+agreement between the arms means something, and fusion helps. Where sparse is
+effectively dead — conceptual, **1/25 = 0.040 [0.007, 0.195]** — fusion
+inherits its noise, and this is the one established hybrid deficit in the
+run: dense over hybrid on conceptual, **b = 0, c = 6**.
+
+Those six queries were examined individually rather than argued about. **In
+all six the sparse arm has no rank at all** — it never returned the gold
+chunk anywhere in its top 50, which is the whole of what it was asked for —
+and in all six the gold chunk sits at dense rank 2 to 5 and is pushed to
+hybrid rank 12 to 22:
+
+| query | sparse rank | dense rank | hybrid rank |
+|---|---|---|---|
+| q005 | none in top 50 | 4 | 22 |
+| q017 | none in top 50 | 2 | 15 |
+| q018 | none in top 50 | 4 | 16 |
+| q019 | none in top 50 | 4 | 12 |
+| q020 | none in top 50 | 5 | 18 |
+| q034 | none in top 50 | 3 | 15 |
+
+The arithmetic is not subtle. A chunk only one arm ranked earns
+`1/(60 + rank) ≈ 0.016`. Any chunk **both** arms ranked, however wrongly,
+earns up to `≈ 0.032`. Two mediocre agreeing candidates outrank one excellent
+lone one. And the arms are looking at nearly disjoint parts of the corpus:
+over the 50 answerable queries their top-50 lists **overlap by a mean of 7.4
+chunks out of 50** (median 6.5, min 0, max 28).
+
+**This is not an argument for tuning `k`.** `k = 60` is the published value,
+fixed before any index existed. Tuning it rescales every vote equally and
+cannot distinguish a confident arm from a dead one, which is the actual
+failure. If a second configuration is ever run it is reported as an
+additional arm with the appendix amended, never as a replacement for these
+numbers.
+
+### The absolute numbers are low. Here is how to tell a hard task from a broken pipeline
+
+**10 of the 50 answerable queries are reached by no arm at any depth to 50** —
+q007, q008, q028, q033, q039, q040, q043, q057, q059, q061, five from each
+stratum. And **all three arms return the same pooled recall@1, 5/50 = 0.100
+[0.043, 0.214]**. Those two facts are the ones a reader should be most
+suspicious of, because a mis-loaded store, an index the planner never uses,
+or an arm silently returning fewer rows than it was asked for would all
+produce exactly this picture. They were checked as a possible defect before
+being reported as a finding.
+
+**The known-positive control settles it.** Take each of those 10 queries,
+throw away the question, and hand the index the **gold span's own text** as
+the query, at the arms' published parameters. **9 of the 10 are reached**,
+three of them at rank 1:
+
+| query | sparse rank | dense rank |
+|---|---|---|
+| q007 | 18 | none |
+| q008 | 47 | 4 |
+| q028 | none | 1 |
+| q033 | 3 | 1 |
+| q039 | none | 15 |
+| q040 | 22 | 20 |
+| q043 | none | 2 |
+| q057 | 4 | none |
+| q059 | 1 | 1 |
+| q061 | none | none |
+
+The index can return those chunks when handed their own text. What fails is
+the jump from a question to the passage that answers it — which is the thing
+being measured. The single exception, **q061**, is a generic
+customer-concentration sentence, the near-boilerplate case AMENDMENT 5 was
+written about.
+
+The same probe carries its own **negative control**, because a probe that
+reports success for everything is not evidence of anything: a nonsense query
+(`zqxjvk parenthetical wombat treacle…`) run through the identical code path
+against q007's gold returns **no rank in either arm**. So "reached" in the
+table above is a property of the text, not of the probe.
+
+**This control is a diagnostic and it was run after the numbers existed**
+(2026-08-20, then re-run independently before publication, same result). It
+uses the arms at their published parameters, it changes no parameter, and it
+recomputes no reported number — every recall figure above comes from the
+frozen run `20260820-153615` and from nothing else. It is reported because a
+reader otherwise has no way to tell a hard task from a broken one, and
+withholding it would leave the low numbers doing that work by implication.
+
+Two further checks, run before any of this was reported: the chunk ids in
+Postgres match the chunk ids in the materialised store exactly, **11,621 both
+ways** — the runner refuses to retrieve otherwise — and `hnsw.ef_search` was
+set and **read back** at 100 on every dense search, because Postgres accepts
+a `SET` on an unrecognised prefixed name as a placeholder that never takes
+effect, and at `ef_search = 10` a depth-50 request silently returns 10 rows.
+
+**A recall@1 of 5/50 = 0.100 [0.043, 0.214] for all three arms is not three
+arms agreeing.** The three hit sets are **5 queries each, 10 distinct queries
+in the union, and exactly one — q001 — hit by all three.** An identical point
+estimate over near-disjoint query sets is the clearest illustration in this
+run of why the comparisons above are paired rather than differences of rates.
+
+**Diagnostics, labelled as diagnostics.** §5 fixed recall@1 and recall@5 and
+nothing else. The rank-of-first-gold figures, the overlap counts, the
+unreached list, the gold-set sizes and the control table above exist to
+answer *"is this broken?"* and are reported as such. They are not headline
+metrics, and a rank distribution that drifted into a results table would be a
+metric chosen after seeing the data. For completeness: the first gold chunk
+lands within depth 50 for **sparse 19/50, dense 36/50, hybrid 36/50**, the
+hybrid figure taken over the first 50 entries of the fused list so that it is
+comparable with the other two.
+
+### What the retrieval numbers do not claim
+
+- **Anything about a second configuration.** One embedding model
+  (`text-embedding-3-small` at 1,536 dimensions), one `tsvector`
+  configuration (`english`), one RRF constant (`k = 60`), one chunk size.
+  This reports retrieval quality **at one configuration** and cannot say
+  whether another embedder, a `simple` dictionary, or a different `k` would
+  do better.
+- **That hybrid loses to dense.** See the paired tables: undetermined at
+  n=50. Nor that hybrid beats dense.
+- **Comparability across chunker versions.** Gold is a location and the gold
+  chunk set is derived from the store, so the query set survives a re-chunk
+  but these numbers do not.
+- **Generality.** 44 filings from 22 large-cap US issuers drawn by a
+  pre-registered rule, and 65 queries written by one author and reviewed by
+  one owner. The intervals quantify sampling noise within this set, not
+  transfer beyond it. (The denominator is **44** here against Phase 2's
+  **39**: chunking removes the context-window limit that excluded five
+  filings from the extraction grid, so retrieval covers the whole corpus.
+  The two sections are not measuring the same population and their numbers
+  are not comparable.)
+- **Ranking quality beyond k=5.** Only recall@1 and recall@5 were
+  pre-registered; no MRR, no nDCG, and adding one now would be a metric
+  chosen after seeing the data.
+- **That 11 duplicate-span queries are harmless.** They are disclosed and
+  counted, not corrected for.
+
+### Reproducing the retrieval numbers
+
+From `backend/`, with the corpus present and `RAG_FILINGS_DIR` set:
+
+```
+python scripts/score_retrieval.py
+```
+
+**This needs no database and no API key.** It re-reads the ranked lists from
+the run's own artifacts, so every published retrieval number above can be
+recomputed offline in about three and a half minutes — most of it in
+AMENDMENT 5's duplicate-span recount, which scans all 11,621 chunks per gold
+span. The scorer refuses a partial run, a run made against a different
+query-set digest, and a rankings file whose bytes no longer match the sha256
+its provenance recorded (`202da364a4d0db…`).
+
+`scripts/run_retrieval.py` regenerates the rankings and does need
+`DATABASE_URL` and `OPENAI_API_KEY`. It refuses on five grounds before a
+single query is embedded: the query set must match the freeze, the store must
+match the database, no embedding may be NULL, `ef_search` must read back as
+set, and the output directory must be outside the repository.
+
+The queries, their gold spans, and the ranked lists are **data, not source**.
+They are gitignored and never committed — this section publishes the
+aggregates, the mechanism and the diagnostics, not the dataset. The scoring
+path itself (`services/retrieval.py`, `services/fusion.py`,
+`evaluation/retrieval_gold.py`, `evaluation/retrieval_scoring.py`,
+`scripts/run_retrieval.py`, `scripts/score_retrieval.py`) is in this
+repository, and was public and dated **before the first query was
+embedded**.
