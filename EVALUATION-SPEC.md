@@ -1262,3 +1262,228 @@ for the same reason, as the one chunk size recorded above. If a second
 configuration is ever run it is reported as an additional arm with this section
 amended, never as a replacement for the first set of numbers.
 
+---
+
+## Appendix — PHASE 3b, a fourth arm. PRE-REGISTERED 2026-08-20, **POST-HOC**
+
+This section amends the appendix above under its own closing sentence: *"If a
+second configuration is ever run it is reported as an additional arm with this
+section amended, never as a replacement for the first set of numbers."* It is
+written **after** the three arms ran and **after** their numbers were published
+in `RESULTS.md`, and it is published **before the fourth arm is built**.
+
+### The disclosure, first, because everything else here depends on it
+
+**This arm is not a blind test and must never be reported as one.**
+
+The first three arms were pre-registered on 2026-08-19, when nobody involved
+had seen a single retrieval number. That is what made their comparison
+informative: the parameters could not have been chosen to produce the result,
+because the result did not exist. **Phase 3b has no such property.** It is
+designed on 2026-08-20, in response to a failure mode identified in Phase 3's
+published results, and it will be evaluated **on the same 65 queries whose
+per-query outcomes are now known**.
+
+What that costs, stated precisely rather than gestured at:
+
+- A result from this arm is a **hypothesis consistent with the data that
+  suggested it**. It is not independent confirmation of anything, and no
+  amount of care in fixing the threshold below changes that.
+- The only thing that would make it a confirmation is a **held-out query set**,
+  and there is not one. Building one now would not repair this arm; it would be
+  a different, later experiment, and it would have to be written blind to
+  everything in `RESULTS.md`.
+- **The design is informed even where the parameters are not.** This is the
+  sharpest part and it is easy to miss. The rule below selects, per query,
+  between the sparse-plus-dense fusion and the dense arm alone — and it is
+  chosen knowing that hybrid holds the best exact-entity cell and dense the
+  best conceptual cell in the published table. Keeping gold out of the
+  threshold does not make the *shape* of the rule uninformed. It was chosen
+  because the published results pointed at it.
+
+Anyone reading a Phase 3b number should read it as: *given that we already knew
+where fusion failed, a rule built to address that failure did this.* That is a
+weaker claim than the first three arms support, and it is the honest one.
+
+### The failure it targets, named
+
+**Rank-only fusion cannot distinguish a confident arm from a dead one.**
+
+RRF sees ranks and nothing else. An arm that has genuinely located the answer
+and an arm that has returned fifty chunks it has no basis to order both cast
+votes of identical weight. Phase 3 measured the consequence: on the conceptual
+stratum the sparse arm reached the gold chunk for 1 of 25 queries, and in the
+six queries where dense hit at k=5 and hybrid did not, the sparse arm had **no
+rank at all** for the gold chunk while the gold chunk fell from dense rank 2–5
+to hybrid rank 12–22. A chunk one arm ranked earns `1/(60 + rank) ≈ 0.016`; a
+chunk both arms ranked, however wrongly, earns up to `≈ 0.032`.
+
+**This is not an argument about `k`, and 3b does not touch it.** Tuning `k`
+rescales every vote by the same factor and cannot separate a confident arm from
+a dead one; it is also frozen, because a `k` chosen after seeing recall@k is a
+dial. `k = 60`, depth 50 and the `chunk_id` tie-break are unchanged in 3b and
+in every arm.
+
+### The rule, fixed here
+
+**Arm name: `gated`.** For each query:
+
+1. Build the sparse arm's `tsquery` and run it, exactly as the sparse arm does
+   — `english` configuration, lexemes OR-ed, `ts_rank_cd` normalization 0,
+   depth 50. Nothing about the sparse arm changes.
+2. Compute the **gate statistic**: the sparse arm's **top `ts_rank_cd` score**
+   for this query, `s₁`. If the query yields no lexemes, or the arm returns no
+   rows, `s₁ = 0`.
+3. Compare `s₁` against the **gate threshold** `τ`, fixed by the procedure in
+   the next section from the store alone.
+4. **If `s₁ > τ`** — the sparse arm has a handle on this query — fuse both arms
+   with the published RRF, `k = 60`, depth 50, ties by `chunk_id` ascending.
+   This is **bit-identical to the hybrid arm**.
+5. **If `s₁ ≤ τ`** — the sparse arm has no handle — the sparse arm contributes
+   **no votes**, and the ranking for that query is the dense arm's ranking
+   unchanged.
+
+The rule is deliberately **binary and one-parameter**. There is no weight, no
+blend and no second threshold, so there is exactly one number that could have
+been chosen badly and it is fixed below before the arm exists. `gated` differs
+from `hybrid` on precisely the gated queries and is identical to it everywhere
+else, which makes the comparison between them interpretable rather than a
+comparison of two different systems.
+
+### The threshold, measured from the store — gold never enters it
+
+This is AMENDMENT 4's method: the gold cap of 5 was fixed by measuring spans
+against the corpus, never by watching what it did to a number. The same
+discipline applies here, and it is the one part of 3b that is genuinely
+uncontaminated.
+
+**`τ` is the 95th percentile of a null distribution of `ts_rank_cd` top scores,
+computed against this store from queries that are known to have no handle.**
+
+The null is built as follows, and every element of it is fixed here:
+
+- **The null query population is random lexeme bags drawn from the store's own
+  vocabulary**, read from `ts_stat` over the `tsvector` column — 19,986
+  distinct lexemes — with each lexeme drawn with probability proportional to
+  its **document frequency**. A null bag therefore has the same commonness
+  profile as text drawn from the corpus, and the null is not made artificially
+  easy by sampling rare terms.
+- **Bag size is matched to the query being judged.** A three-lexeme query and a
+  fourteen-lexeme query have different null distributions, because
+  `ts_rank_cd` sums over matched terms. **`L` is defined as the number of
+  *distinct* lexemes in the query's OR-tsquery** — `plainto_tsquery` can emit
+  the same stem twice from one question, and counting it twice would size the
+  null against a term the arm only matches once. For a query with `L` distinct
+  lexemes, `τ(L)` is computed from null bags of exactly `L` distinct lexemes.
+  **`τ` is a function of `L`, not a single scalar.**
+- **Bags are drawn without replacement**, so a bag holds exactly `L` distinct
+  lexemes and cannot double-count a stem — the same rule being applied to the
+  real queries, applied to the null.
+- **1,000 null bags per distinct `L`** present in the query set, drawn from a
+  `random.Random` seeded at **`20260820`**, the seed recorded in the run's
+  provenance alongside every other parameter.
+- **The null bags are already-stemmed lexemes and must not be re-stemmed.**
+  They come out of the index's own `tsvector`, so they are quoted, OR-ed and
+  cast **`::tsquery`** directly, and passed to the same `sparse_search` the
+  sparse arm uses. They do **not** go through `plainto_tsquery` or
+  `to_tsquery`, either of which would run the `english` dictionary a second
+  time over an already-stemmed term and silently produce a different null.
+  This is the trap recorded in `services/retrieval.py`'s docstring, in the
+  form it takes here.
+- **`τ(L)` = the 95th percentile of those 1,000 top scores**, by the
+  nearest-rank definition, so the value is one that was actually observed.
+
+**Why the 95th percentile and not some other number.** It is the project's
+existing convention, not a new choice: every interval in `RESULTS.md` is Wilson
+at 95%. The gate therefore fires when a query's sparse evidence is **not
+distinguishable at the project's own alpha from a query built out of noise**.
+No other value was tried, and the measured distribution is published whatever
+it looks like.
+
+**What never enters this computation:** the gold spans, the gold chunk sets,
+any hit or miss, any recall figure, and any per-query outcome from run
+`20260820-153615`. The null is a property of the store and the `english`
+dictionary. It could have been computed on 2026-08-19, before any query
+existed, and would have produced the same `τ`.
+
+### The clause that stops this becoming a dial
+
+**The threshold is not moved after it is applied. There is no second attempt.**
+
+Specifically, and binding:
+
+- If the gate fires on **zero** of the 50 answerable queries, `gated` is
+  identical to `hybrid` and that is the published result. The threshold is not
+  lowered to make the arm do something.
+- If the gate fires on **all 50**, `gated` is identical to `dense` and that is
+  the published result. The threshold is not raised.
+- If `gated` scores **worse** than `hybrid`, that is the published result.
+- The percentile is not changed, the statistic is not swapped, and no second
+  gate is added. Any of those would be a different arm, requiring this section
+  to be amended again and dated again, and it would have to say that the first
+  version of 3b had already been seen.
+
+The count of gated queries, per stratum, is **published with the result**
+whatever it is — it is the single most diagnostic number about whether the rule
+did what it was designed to do.
+
+### Reporting
+
+- **`gated` is a fourth row.** The sparse, dense and hybrid numbers published
+  in `RESULTS.md` are **never** recomputed, adjusted, restated or re-derived.
+  Phase 3b adds; it does not correct.
+- The same metrics on the same denominators: **recall@1 and recall@5**, per
+  stratum, Wilson at 95%, over the same 50 answerable queries. The 15
+  unanswerable still carry no gold and still enter no recall denominator.
+- Comparisons against the first three arms are **paired**, reported as
+  discordant pairs `(b, c)` with a Wilson interval on `b/(b+c)`, and a
+  direction is claimed only where that interval excludes 0.5 — the same rule,
+  with the same discordant denominators, which will again be small.
+- **Every reported Phase 3b number carries the post-hoc disclosure above in the
+  same breath.** A `gated` recall figure quoted without it is a
+  misrepresentation of what was measured.
+
+*Direction of effect, stated rather than buried:* **unknown, and that is
+unusual for this document.** Every other amendment here could name which way it
+moved a number before it was applied — AMENDMENT 4 could only lower recall,
+AMENDMENT 5 changed no scoring rule. This one can move recall either way. What
+can be said is narrower: the gate can only make `gated` differ from `hybrid` in
+the direction of `dense`, because those are the only two behaviours it selects
+between. It cannot invent a ranking neither arm produced.
+
+### Two alternatives, and why they are not what is being built
+
+- **Weighted RRF**, `Σ wₐ / (k + rankₐ(d))`. Workable, and second-best here.
+  Rejected as the first choice because a weight is a continuous parameter with
+  no principled value: any `w` chosen because it improved recall is precisely
+  the dial `k = 60` was frozen to avoid, and a `w` chosen without measuring is
+  arbitrary. The binary gate has one parameter and that parameter is fixed by a
+  null model rather than by judgement. Weighted RRF also applies the same
+  weight to every query, which does not address the failure — the sparse arm is
+  not uniformly weak, it is **strong on exact-entity and dead on conceptual**,
+  and a global weight cannot express that.
+- **Score-based fusion with normalisation.** Already considered and **rejected
+  in `services/fusion.py`'s docstring**, before any of this: `ts_rank_cd` scores
+  and cosine distances are on incomparable scales, so blending them needs a
+  corpus-dependent normalisation, and a normalisation re-tuned after seeing a
+  result is a dial. **"Hybrid did not beat dense pooled" is not a better
+  argument than the one that rejected it** — it is the exact circumstance the
+  original rejection anticipated. It stays rejected.
+
+Note what 3b is *not* doing, since it would be easy to confuse: it does not
+normalise or blend scores across arms. `ts_rank_cd` is compared **only against
+other `ts_rank_cd` values from the same store**, which is a comparison within
+one scale and needs no normalisation at all. The dense arm's scores are never
+consulted by the gate.
+
+### Order of operations, so the record is checkable
+
+1. `RESULTS.md`'s Phase 3 numbers were published and pushed **before this
+   section was written**, so a reader can confirm the blind ablation was
+   committed to the record before the informed attempt existed.
+2. This section is published and pushed **before the arm is written**.
+3. The null distribution is measured and `τ(L)` published **before the arm runs
+   against the query set**.
+4. The arm runs once. Its numbers are reported as a fourth row, with the
+   disclosure attached.
+
