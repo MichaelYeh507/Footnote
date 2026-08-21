@@ -115,6 +115,35 @@ retrieval number can be recomputed offline from the artifacts. It refuses a part
 run made against a different query-set digest, and a rankings file whose bytes no longer
 match the sha256 its provenance recorded.
 
+## 3c. The fourth arm (Phase 3b) — post-hoc, and it says so
+
+`evaluation/gate.py` holds the `gated` arm pre-registered in `EVALUATION-SPEC.md` on
+2026-08-20. **Unlike the three above it was designed after their results were published**,
+on the same 65 queries, so what it produces is a hypothesis consistent with the data that
+suggested it and not an independent confirmation. Every script here prints that.
+
+```bash
+cd backend
+python scripts/measure_gate_threshold.py --dry-run   # every refusal, measures nothing
+python scripts/measure_gate_threshold.py             # tau(L) from the store, ~45 min
+python scripts/run_gated_arm.py                      # the arm itself, seconds
+python scripts/score_retrieval.py --gated gated-rankings-<stamp>.jsonl
+```
+
+Three steps rather than one, for the same reason the arms and the scorer are separate.
+`measure_gate_threshold.py` needs `DATABASE_URL` and draws 1,000 random lexeme bags per
+distinct lexeme count from the store's own vocabulary; **no gold span, hit or recall figure
+enters it**, and it has no flag for the percentile. `tau` is published before the arm runs
+and is not moved afterwards.
+
+`run_gated_arm.py` needs **no database and no API key** — it re-fuses the recorded run,
+verifying its sha256 first, so the three published arms are read and never re-run. That is
+what makes it impossible for the fourth arm to move a Phase 3 number.
+
+`score_retrieval.py` **without** `--gated` is unchanged and still reproduces the three
+published arms exactly; the fourth arm is detected from the rankings rather than required,
+so adding it did not change what the Phase 3 reproduction command does.
+
 ## 4. Database schema
 
 `backend/schema.sql` recreates the current schema on a fresh Supabase project — apply it in

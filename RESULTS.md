@@ -633,3 +633,181 @@ path itself (`services/retrieval.py`, `services/fusion.py`,
 `scripts/run_retrieval.py`, `scripts/score_retrieval.py`) is in this
 repository, and was public and dated **before the first query was
 embedded**.
+
+---
+
+## Phase 3b — a fourth arm, designed after seeing Phase 3's results
+
+Measured 2026-08-21. **Read the next four sentences before any number below.**
+
+The three arms above were pre-registered **blind**: their parameters were
+public and dated before either index existed, so they could not have been
+chosen to produce the result. **This arm was not.** It was designed on
+2026-08-20 in response to a failure the published Phase 3 numbers revealed,
+and it is measured **on the same 65 queries whose per-query outcomes were
+already known**. Its result is therefore a **hypothesis consistent with the
+data that suggested it — never an independent confirmation of anything.**
+
+Only a held-out query set would make it a confirmation, and there is not one.
+Building one now would not repair this arm; it would be a different, later
+experiment. The full disclosure, the rule, the threshold procedure and the
+clause forbidding a second attempt were **published and pushed before the arm
+was built** — `EVALUATION-SPEC.md`, appendix *PHASE 3b, a fourth arm*, dated
+2026-08-20 — and the Phase 3 numbers above were published and pushed before
+that. The ordering is one commit at a time and it is checkable.
+
+**The three arms above are not recomputed, adjusted or restated anywhere in
+this section.** `gated` is an additional row. Re-scoring the original run
+without the fourth arm reproduces every Phase 3 figure exactly; that is
+enforced by test, because the reproduction command this document publishes
+would otherwise stop working.
+
+### What it targets, and the rule
+
+**Rank-only fusion cannot distinguish a confident arm from a dead one.** RRF
+sees ranks and nothing else, so an arm that has located the answer and an arm
+that has returned fifty chunks it cannot order cast votes of equal weight.
+That is the mechanism behind hybrid's one established deficit above.
+
+The rule, in full. `s₁` is **the sparse arm's own top `ts_rank_cd` score** for
+a query, and `L` its number of distinct lexemes:
+
+- **`s₁ > τ(L)`** — fuse both arms under the published RRF. Bit-identical to
+  the hybrid arm.
+- **`s₁ ≤ τ(L)`** — the sparse arm contributes no votes; the ranking is the
+  dense arm's, unchanged.
+
+Binary, one parameter, no weights. `k = 60`, fusion depth 50 and the
+`chunk_id` tie-break are the pre-registered values in both branches — 3b
+changes the arm, not them. Verified by test on every query: where the gate
+fired the arm is exactly `dense`, and where it did not it is exactly `hybrid`.
+
+### Where τ comes from — the one part of 3b that is uncontaminated
+
+`τ(L)` is the **95th percentile, nearest-rank, of the top `ts_rank_cd` scores
+of 1,000 random lexeme bags** of `L` distinct lexemes, drawn from this store's
+own 19,986-lexeme vocabulary with probability proportional to document
+frequency, seed `20260820`. The gate fires when a query's sparse evidence is
+not distinguishable, at the project's own alpha, from a query built out of
+noise.
+
+**No gold span, no gold chunk set, no hit, no miss and no recall figure enters
+that computation.** It is a property of the store and the `english`
+dictionary; it could have been computed on 2026-08-19, before any query
+existed, to the same answer. This is AMENDMENT 4's method — the gold cap of 5
+was fixed by measuring the corpus, never by watching what it did to a number.
+
+The 95th percentile is not a fresh choice: it is the same 95% every Wilson
+interval in this document uses. Measured values, published whatever they are:
+
+| L | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 14 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| τ(L) | 3.30 | 3.40 | 3.60 | 3.80 | 3.90 | 4.00 | 4.10 | 4.10 | 4.20 | 4.40 |
+
+**The gate fired on 34 of the 50 answerable queries** — **21/25 conceptual**
+and **13/25 exact-entity**. That count was published as required whatever it
+turned out to be, and **τ was not moved after it was applied**: the
+pre-registration bound this in advance, including the cases where the arm
+would have come out identical to `hybrid` or identical to `dense`.
+
+### recall@5 with the fourth row
+
+| arm | exact-entity (n=25) | conceptual (n=25) | pooled (n=50) |
+|---|---|---|---|
+| sparse | 9/25 = 0.360 [0.202, 0.555] | 1/25 = 0.040 [0.007, 0.195] | 10/50 = 0.200 [0.112, 0.330] |
+| dense | 14/25 = 0.560 [0.371, 0.733] | 8/25 = 0.320 [0.172, 0.516] | 22/50 = 0.440 [0.312, 0.577] |
+| hybrid | 16/25 = 0.640 [0.445, 0.798] | 2/25 = 0.080 [0.022, 0.250] | 18/50 = 0.360 [0.241, 0.499] |
+| **gated** *(post-hoc)* | 17/25 = 0.680 [0.484, 0.828] | 8/25 = 0.320 [0.172, 0.516] | 25/50 = 0.500 [0.366, 0.634] |
+
+**recall@1 does not move at all.** `gated` is 5/50 = 0.100 [0.043, 0.214],
+the same figure as all three arms above, with 4/25 exact-entity and 1/25
+conceptual — identical to `dense`. Whatever the gate fixes, it is not the
+top-1 floor.
+
+### What the fourth arm establishes, and what it does not
+
+Same rule as above: a direction holds only where the Wilson interval on
+`b/(b+c)` excludes 0.5. **`b` counts queries the first-named arm hits and the
+second misses.**
+
+**Established, k=5:**
+
+| comparison | stratum | b, c | b/(b+c) | direction |
+|---|---|---|---|---|
+| gated vs sparse | pooled | 16, 1 | 0.941 [0.730, 0.990] | gated > sparse |
+| gated vs sparse | exact-entity | 8, 0 | 1.000 [0.676, 1.000] | gated > sparse |
+| gated vs sparse | conceptual | 8, 1 | 0.889 [0.565, 0.980] | gated > sparse |
+| **gated vs hybrid** | **pooled** | 8, 1 | 0.889 [0.565, 0.980] | **gated > hybrid** |
+| **gated vs hybrid** | **conceptual** | 6, 0 | 1.000 [0.610, 1.000] | **gated > hybrid** |
+
+**Undetermined, k=5:**
+
+| comparison | stratum | b, c | b/(b+c) | direction |
+|---|---|---|---|---|
+| gated vs dense | pooled | 3, 0 | 1.000 [**0.439**, 1.000] | none |
+| gated vs dense | exact-entity | 3, 0 | 1.000 [**0.439**, 1.000] | none |
+| gated vs dense | conceptual | 0, 0 | undefined — the two arms agree on all 25 | none |
+| gated vs hybrid | exact-entity | 2, 1 | 0.667 [0.208, 0.939] | none |
+
+Nothing at k=1 is established for `gated` against any arm, exactly as nothing
+was for the first three.
+
+**So, precisely:**
+
+- **The arm did what it was designed to do, and that is established.** Hybrid's
+  one unambiguous deficit was conceptual, 0–6 against dense. `gated` reverses
+  it: 6–0 over hybrid on conceptual, and 8–1 pooled. The gate removes the
+  sparse arm's votes on the queries where it has no handle, which is the
+  failure named in the pre-registration before the arm was built.
+- **"gated beats dense" is NOT established, and the pooled point estimate is
+  not evidence that it does.** 25/50 = 0.500 [0.366, 0.634] against 22/50 =
+  0.440 [0.312, 0.577] looks like an improvement; the paired test gives
+  **3, 0 → 1.000 [0.439, 1.000]**, which
+  contains 0.5 and misses by 0.061. This is the same trap as hybrid-vs-dense
+  above, and it is worth stating twice: **`gated` never loses a query to dense
+  in this run — 3–0, no losses anywhere — and n=50 still cannot establish the
+  direction.**
+- **On the conceptual stratum `gated` is dense.** Not "similar to": `b = 0,
+  c = 0`, the two arms agree on every one of the 25. The gate fired on 21 of
+  them, where the arm *is* dense by construction, and on the other 4 fusion
+  happened to land on the same hit/miss. The entire conceptual gain over
+  hybrid is the gate declining to fuse.
+- **Its whole advantage over dense is three exact-entity queries** — q013,
+  q027, q042 — and all three are queries the gate did **not** fire on, where
+  fusion with a live sparse arm found something dense alone missed. That is
+  the case for fusion in this corpus, and it rests on three queries.
+
+### What the fourth arm does not claim
+
+- **That it is a confirmation of anything.** It is post-hoc. Every number in
+  this section carries that, not just the summary line.
+- **That it beats dense.** Undetermined at n=50, in both strata and pooled.
+- **That the threshold is validated.** τ is uncontaminated by gold, but it was
+  applied once, to the queries that motivated the design. A threshold that
+  works on the set that suggested it has not been tested.
+- **That the gate generalises.** It fired on 34/50 here. On another corpus,
+  another `tsvector` configuration or another chunk size, the null shifts and
+  so does the count.
+- **Anything about recall@1.** Unmoved, 5/50, same as every other arm.
+- **That a rule is better than a weight.** Weighted RRF and score-based fusion
+  were both declined in the pre-registration, on grounds recorded there. They
+  were not measured and lost; they were not run.
+
+### Reproducing the fourth arm
+
+```
+python scripts/measure_gate_threshold.py     # tau, from the store. Needs DATABASE_URL.
+python scripts/run_gated_arm.py              # the arm. No database, no API.
+python scripts/score_retrieval.py --gated gated-rankings-<stamp>.jsonl
+```
+
+**`run_gated_arm.py` touches neither Postgres nor OpenAI**, and that is a
+guarantee rather than a convenience: the fourth arm is a re-fusion of the
+recorded run, so the three published arms are read from a file whose sha256 is
+verified first and are **never re-run**. Nothing in Phase 3b can move a Phase 3
+number, because Phase 3b never asks the retriever anything.
+
+`score_retrieval.py` **without** `--gated` behaves exactly as it did when the
+three arms were published, and reproduces them figure for figure. The fourth
+arm is detected from the rankings rather than being a required arm, so the
+reproduction instructions in the Phase 3 section above keep working unchanged.
