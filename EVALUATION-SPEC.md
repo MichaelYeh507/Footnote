@@ -1487,3 +1487,428 @@ consulted by the gate.
 4. The arm runs once. Its numbers are reported as a fourth row, with the
    disclosure attached.
 
+---
+
+## Appendix — PHASE 4/5, grounded QA and abstention. PRE-REGISTERED 2026-08-21
+
+Written after Phase 3 and Phase 3b were published, and **before any QA output
+exists** — before a single question has been put to any model over any arm's
+retrieved context, in any form. Every rule in this section that moves a number
+is fixed here before the data it would move exists. The retrieval appendix
+above already assigned this phase its subject: *"Abstention is a property of
+the QA layer and is measured against it in Phases 4 and 5, never against a
+ranked list."* This section is that measurement's pre-registration.
+
+**What the phase asks.** Phase 2 measured an extractor that **abstained on 0 of
+351 instances** and invented values for fields the filing never addressed
+(false extraction 15/45 = 0.333 [0.214, 0.479]). This phase asks whether
+retrieval grounding and an explicit license to decline change that behaviour:
+does the model use a passage it is handed, and does it decline when handed
+nothing that answers the question. **No number from this phase is comparable to
+Phase 2's** — different task (free-text QA against five excerpts vs schema
+extraction against a whole filing), different denominators, different outcome
+definitions. The continuity is the model and the corpus, not the metric, and no
+sentence in any writeup may put a Phase 4/5 number beside a Phase 2 number as
+if they measured the same thing.
+
+**All four arms are measured — sparse, dense, hybrid and `gated` — decided
+2026-08-21, before this section was written.** Choosing one retriever on the
+same 65 queries this phase reports against would mean selecting it using those
+labels, and that bites hardest on `gated`, which was designed on those very
+outcomes. Naming an arm for a demo is a separate, later, product decision that
+cites this ablation; it is not a measurement and it is not made here. Every
+`gated` number in this phase **inherits the PHASE 3b post-hoc disclosure above
+and must carry it in the same breath**, because the arm that produced its
+context does.
+
+### The ceiling, stated before any metric is defined
+
+**Retrieval caps this phase at 0.500.** The best arm places a gold chunk in the
+top 5 for half of the answerable queries. A single end-to-end accuracy number
+would therefore be a *retrieval* number wearing a QA costume, and a QA
+improvement would be indistinguishable from a retrieval one inside it.
+
+So the phase's accuracy is reported **conditioned on whether a gold chunk was
+actually in the context the model saw**: *gold in context* (can the model use
+the passage it was handed?) and *gold not in context* (does it decline, or does
+it assert?). Choosing that split after seeing output would be choosing a
+denominator from the data, so it is fixed now — and its denominators are
+already arithmetic on published artifacts, not new measurements. "Gold in
+context" means: at least one chunk of the query's top 5, read from the recorded
+rankings, passes the pre-registered hit test (gold accession, contains a gold
+span under the published normalization). These are exactly the recall@5
+numerators published for Phase 3 and Phase 3b — restated here, never
+recomputed:
+
+| arm | gold in top-5 | gold not in top-5 | exact-entity in | conceptual in |
+|---|---|---|---|---|
+| sparse | 10 | 40 | 9 | 1 |
+| dense | 22 | 28 | 14 | 8 |
+| hybrid | 18 | 32 | 16 | 2 |
+| gated | 25 | 25 | 17 | 8 |
+
+Every arm additionally answers the **15 unanswerable** queries from its own
+recorded top 5.
+
+**Known now and stated now:** every conditioned cell except `gated`'s two
+pooled cells (25 and 25) sits below the n=25 reporting gate
+(`MIN_REPORTABLE_N`). Those cells are still reported — as counts over their
+denominators with Wilson intervals — but the gate governs attaching rate
+language to them, exactly as it did in Phase 3, and no denominator will be
+merged, re-drawn or pooled after output exists to lift a cell over the gate.
+
+**The primary cells of the phase, fixed in advance so the writeup cannot
+choose them later: (i) grounded accuracy in the *gold in context* cell, and
+(ii) the abstention rate on the 15 unanswerable queries.** Everything else
+reported below is context for those two.
+
+### What the model is fed, and which k
+
+**k = 5.** The context for a query under an arm is that arm's top 5 chunks
+from the recorded rankings, in rank order. Why 5 and not another number:
+
+- **Top-1 is broken by construction.** recall@1 is 5/50 = 0.100 for all four
+  arms, so a k=1 phase would have conditioned denominators of 5 — nothing it
+  produced could support any claim.
+- **A deeper cutoff is a new metric.** Only recall@1 and recall@5 were
+  pre-registered as reporting cutoffs. The rankings exist to depth 50, so a
+  deeper context is one flag away — and choosing one now would be choosing a
+  new retrieval operating point *after* seeing that recall@5 caps the phase at
+  0.500. That is a dial, and it is declined. If a deeper cutoff is ever
+  measured it is registered first, dated, and reported as a new metric, never
+  slipped in as "context size".
+
+**The run touches no database and no retrieval code path.** Contexts are read
+from the pinned artifacts and chunk ids are resolved to text through the same
+file `scripts/load_chunks.py` loaded into the store:
+
+- rankings `rankings-20260820-153615.jsonl`, sha256
+  `202da364a4d0db0315f84a44ebc553b5055079e21aa03992e8e118e958c7319a`
+- gated rankings `gated-rankings-20260821-091433.jsonl`, sha256
+  `51f2786317352415278e0b4ad7f6c38426a5c234a53ad8214a56e3dcb051e724`
+- chunk text `chunks.jsonl`, sha256
+  `b6719c05e974b9396bd2e3eac8ab5a00c01231f0eb968396cfea743d9e031467`
+- the query set, verified against the published freeze digest
+  `a35b2634f47608fdee4d1dbd612e6d6d56f64d1e261ce85c4e6bb00d5cbde16a` before
+  the first call
+
+The runner verifies all four digests and refuses to run on a mismatch. Every
+recorded ranking holds at least 5 chunks (checked over both pinned files), so
+the context is always exactly 5 excerpts.
+
+**Each excerpt is shown with its stored metadata**: ticker, fiscal period end,
+and 10-K item (an empty item is printed as `—`). Stated plainly: this hands the
+QA layer one thing the text-only retriever could not have — **the fiscal year
+label**. That is deliberate, and it is what makes the DUPLICATE-SPAN rule
+below a real test of the model rather than a coin flip inherited from
+retrieval.
+
+### One call per distinct context, and why that is not an economy
+
+The QA layer is a function of (question, context). Two arms that hand the model
+a byte-identical context are the same experiment, and calling the API twice
+would inject sampling noise into paired comparisons that are **concordant by
+construction** — `gated`'s top 5 is bit-identical to dense's where the gate
+fired and to hybrid's where it did not, verified per query from the pinned
+files, not assumed.
+
+So the run makes **one call per distinct (query, ordered top-5 chunk ids)
+pair**, and every arm-query row records which call it reuses. Counted from the
+pinned artifacts before any call is made: the 260 arm-query pairs collapse to
+**195 distinct contexts** (65 sparse + 65 dense + 65 hybrid; `gated`
+contributes zero new contexts). This is the same argument that had Phase 3b
+re-fuse the recorded run rather than re-query the store: what is shared is
+shared structurally, so measuring it twice could only add noise.
+
+Two consequences, stated in advance rather than discovered later:
+
+- **`gated` vs `dense` can be discordant only on the un-gated queries** (16
+  answerable, 8 unanswerable) and **`gated` vs `hybrid` only on the gated
+  ones** (34 answerable, 7 unanswerable). Every other pair of their rows is
+  concordant by construction.
+- Run-to-run noise, whatever it is, cancels exactly within shared contexts and
+  is characterized (not eliminated) by the stability repeats below everywhere
+  else.
+
+### The instrument, fixed
+
+- **Model `gpt-4o-mini`** — the same model Phase 2's extractor runs
+  (`services/openai_structurer.py`). The phase asks whether grounding changes
+  *that model's* behaviour; a different model would confound the answer with a
+  model change.
+- **`temperature=0.0`**, **`response_format={"type": "json_object"}`**, no
+  seed parameter, no `max_tokens` cap — the same posture as the Phase 2
+  instrument. As there, temperature 0 is noise reduction, not a determinism
+  guarantee, and the stability repeats below are what stand behind that.
+- **Retries: at most 3 per call, transport and HTTP errors only, each retry
+  recorded.** A response that arrives and parses is never re-requested,
+  whatever it says. A response that arrives and does not parse is scored
+  `malformed` below, never retried into compliance.
+
+### The prompt, fixed verbatim
+
+The system prompt, in full. Changing a word of it after the first eval-set
+call is changing the instrument mid-measurement, and the no-relax clause below
+forbids it.
+
+```
+You are answering questions about SEC Form 10-K filings. You are given a
+question and five numbered excerpts from those filings. Each excerpt is
+labeled with its ticker, fiscal period end, and 10-K item number.
+
+Return ONLY valid JSON in exactly this shape. No markdown, no explanation:
+
+{"answer": "string or null", "citation": 1, "quote": "string or null"}
+
+RULES
+
+1. Answer ONLY from the excerpts. Never use outside knowledge, and never
+   infer, estimate, or calculate a value the excerpts do not state.
+2. If the excerpts do not state the answer, return exactly
+   {"answer": null, "citation": null, "quote": null}. Declining is the
+   correct output whenever the excerpts do not answer the question.
+3. null, 0, and a number are three different answers:
+     null       the excerpts do not address the question
+     0          an excerpt states the amount is zero, or that none occurred
+     a number   an excerpt states that number
+4. If you answer: "citation" is the number (1-5) of the single excerpt your
+   answer rests on, and "quote" is a verbatim sentence or phrase copied from
+   that excerpt that states the answer. The quote must appear word for word
+   in the cited excerpt.
+5. Answer the question as asked, including its fiscal year or period if it
+   names one. The excerpt labels state each filing's fiscal period end; if
+   no excerpt matches the period the question asks about, apply rule 2.
+6. Answer in one sentence or less: the fact asked for, with its unit and
+   scale as the excerpt states them.
+```
+
+The user message is rendered from a fixed template — the question, then the
+five excerpts in rank order:
+
+```
+Question: {query}
+
+[{i}] {ticker} 10-K, fiscal period ending {period}, Item {item}:
+{chunk text}
+```
+
+Nothing else is sent: no few-shot examples (example content would be a
+contamination vector), no per-stratum variation, no arm identification.
+
+### Outcomes, mechanical — computed by the published hit test, not a second one
+
+**An abstention is exactly `"answer": null` in valid JSON, and nothing else
+is.** A prose refusal inside a non-null `answer` is an answered item that
+asserts nothing — it scores as answered and unsupported below. That is a
+prompt-following cost borne by the pipeline, fixed in advance; the
+known-negative control below verifies before the run that the instrument can
+actually express abstention as null.
+
+Every arm-query row lands in exactly one of:
+
+1. **abstained** — `answer` is null.
+2. **answered, unsupported** — any of: `citation` missing, not an integer in
+   1–5; `quote` missing or empty; or `quote` not contained in the cited
+   excerpt's text under the published normalization (`retrieval_gold.
+   normalize` / `contains_span`, the quote in the span role).
+3. **answered, supported, cited non-gold** — the quote is contained in the
+   cited excerpt, but the cited chunk fails the pre-registered hit test for
+   this query. Sub-count reported: **right passage, wrong filing** — the cited
+   chunk's text contains a gold span but its accession is not a gold
+   accession. This is AMENDMENT 5's duplicate-span case arriving at the QA
+   layer.
+4. **answered, supported, cited gold** — the quote is contained in the cited
+   excerpt and the cited chunk passes the pre-registered hit test (gold
+   accession and contains a gold span).
+
+Plus one instrument state, reported and counted as a failure in every rate it
+touches: **malformed** — the response is not valid JSON or not the schema
+above.
+
+The hit test is `evaluation/retrieval_gold.py`'s published functions, called —
+never re-implemented. Two implementations of the hit test is the one defect
+shape that could move every number in this phase without failing anything.
+
+**The DUPLICATE-SPAN rule, fixed.** Gold stays scoped to the gold accession,
+exactly as in retrieval — a right-passage-wrong-filing citation is **not**
+cited-gold and is **not** grounded-correct. But unlike the retriever, the QA
+layer was shown each excerpt's fiscal period, so a wrong-year citation is a
+real error of the layer, not a coin flip it inherited. The count of
+right-passage-wrong-filing citations, and how many of the 11 flagged
+DUPLICATE-SPAN queries they fall on, is **reported alongside the results** —
+disclosed rather than absorbed, and never credited. For the 15 unanswerable
+queries outcome 4 is impossible by construction (they have no gold), and any
+answered outcome is a failure to abstain.
+
+### Answer correctness — human, blinded, and rubric'd in advance
+
+Citation and support are mechanical; whether the answer's *content* is right is
+not, and this project does not use LLM judges (the Phase 2 rejection of
+LLM-assisted labels extends to QA verdicts — an unregistered instrument is an
+unregistered instrument). So: **a human adjudicates every answered item on an
+answerable query, against the gold span, under this rubric, blind to
+everything else.**
+
+An answered item is **correct** iff all three hold:
+
+- **R1 — responsive.** It answers what was asked: the quantity, name or fact
+  the question requests, for the period the question names if it names one.
+- **R2 — agrees with gold.** Every fact it asserts in answer to the question
+  agrees with the gold span: numbers equal after converting the stated units
+  and scale; names match the entity the span names; a qualifier that changes
+  the claim ("more than", "approximately", "at least") is preserved or at
+  least not contradicted.
+- **R3 — no contradicting additions.** It asserts nothing additional that
+  contradicts the gold span.
+
+Anything else is **incorrect**. **An item the rubric does not clearly decide
+is recorded `ambiguous` and scored incorrect in the headline cells** — the tie
+resolves against the pipeline, the direction that cannot flatter it — and
+every table is additionally reported with ambiguous items excluded, mirroring
+Phase 2's handling of its `ambiguous` flag.
+
+The blinding, enforced the way labeling protocol rule 4 was — by construction,
+pinned by a test, not by convention:
+
+- The adjudication interface displays **the question, the gold span(s), and
+  the answer text. Nothing else.** It has no code path that reads the arm, the
+  citation, the quote, the mechanical outcome, or any retrieval result.
+- Items are presented in an order shuffled by a seeded RNG, the seed recorded.
+- Identical (query, normalized answer text) pairs receive **one** verdict,
+  applied to every row that shares them — identical outputs cannot drift into
+  different verdicts.
+- Verdicts are recorded append-only with the query's `query_sha256`, and the
+  adjudication file is digest-frozen before any per-arm table is assembled.
+  `score_qa` refuses to emit per-arm cells until every answered answerable
+  item has a verdict.
+
+The 15 unanswerable queries need no verdicts: any answered outcome on them is
+a failure to abstain, mechanically.
+
+### What is reported, per arm
+
+All cells as count / denominator with a Wilson interval at 95%; rate language
+gated by `MIN_REPORTABLE_N = 25`, direction language by the paired rule below.
+
+1. **Gold in context** (n = 10 / 22 / 18 / 25): **grounded accuracy** — the
+   share of the cell that is outcome 4 (cited gold, quote supported) **and**
+   adjudicated correct. Also reported for the cell: abstentions (declining
+   while holding the answer is a failure of use, and it is its own kind), and
+   answered-but-not-grounded-correct.
+2. **Gold not in context** (n = 40 / 28 / 32 / 25): **abstention rate** — the
+   share that is outcome 1. The answered remainder is broken out: supported
+   non-gold (with its adjudicated-correct sub-count — a correct answer from a
+   non-gold excerpt is reported as its own line, neither folded into grounded
+   accuracy nor called an invention), unsupported, malformed. The
+   **unsupported-or-incorrect answered share of this cell is the phase's
+   invention measure**, named in advance.
+3. **Unanswerable** (n = 15): **abstention rate**, mechanical. Any answered
+   outcome is a failure; supported vs unsupported is broken out for diagnosis.
+4. **End-to-end, answerable** (n = 50): grounded-correct over all 50,
+   **always printed in the same row as the arm's recall@5 ceiling**, never
+   without it. This row exists because readers will compute it anyway; the
+   conditioned rows above it are the measurement.
+5. **Right passage, wrong filing**: count, and its incidence on the 11 flagged
+   DUPLICATE-SPAN queries.
+6. **Ambiguous verdicts**: count, and every table re-reported with them
+   excluded.
+7. **Per-stratum conditioned counts** are reported as counts; every such cell
+   is below the reporting gate and is labeled so.
+
+**Paired comparisons** are made only on denominators the arms share whole:
+**grounded-correct over the 50 answerable**, and **abstained over the 15
+unanswerable** — all six arm pairs, each reported as discordant pairs (b, c)
+with the Wilson interval on b/(b+c), a direction claimed only where that
+interval excludes 0.5. The conditioned cells are **not** paired across arms —
+their denominators are different query subsets per arm, and pairing them would
+compare different questions. The structural concordances stated above mean
+`gated`'s paired rows against dense and hybrid have small maximum discordance
+by construction; that is said next to those rows, not discovered in them.
+
+### Controls and stability, before the real run — a negative result needs a known positive
+
+All controls are built from **calibration-directory filings** (`RAG_CALIBRATION_DIR`),
+which are outside the corpus, outside the store, and touched by no eval query,
+ranking or gold span. They run **after this section is pushed and before the
+first eval-set call**, and their transcripts are recorded in the run's
+provenance.
+
+- **Known-positive**: a fixed five-excerpt context from calibration text, one
+  excerpt containing a planted known fact, and its question. Expected:
+  answered, cites the planted excerpt, quote verifies, adjudication-rubric
+  correct. A harness that cannot detect a right answer cannot report a wrong
+  one as a finding.
+- **Known-negative**: the same context, a question whose answer it does not
+  contain. Expected: `{"answer": null, ...}` — the instrument can express
+  abstention as null.
+- **Stability**: both controls run **three times each**, mirroring the Phase 2
+  protocol. Identical across runs → recorded, proceed. Not identical → the
+  instrument has run-to-run noise, and it is characterized and stated with the
+  results before any eval-set call is made.
+- **Split control**: the conditioned-split code must reproduce the published
+  recall@5 numerators — 10, 22, 18, 25 — from the pinned artifacts exactly, or
+  the runner refuses to run. The denominator table above is thereby checked by
+  machine, not trusted.
+- **Malformed path**: exercised against a stored bad payload, no API call.
+
+If a control fails, the fix is amended into this section **dated, named, and
+before the first eval-set call** — the same legitimacy test every amendment in
+this document has had to pass: the rule as written demonstrably fails its
+stated intent, and no eval output existed when it was changed. After the first
+eval-set call, nothing is amended.
+
+### The clause that stops this becoming a dial
+
+- **The split is never re-drawn.** The conditioned denominators are fixed by
+  the pinned rankings and the published hit definition. If the split control
+  fails, the split code is repaired until it reproduces the published
+  numerators; a denominator is never re-derived from output.
+- **The prompt, model, temperature, k, schema and rubric are frozen at the
+  first eval-set call.** Before it, a failed control permits a dated
+  amendment. After it, nothing does.
+- **One run.** No answer is regenerated; sampling variation is never a reason
+  to re-call; transport retries are capped at 3 and recorded.
+- **Every branch of the result is published as-is.** Zero abstentions
+  everywhere — Phase 2 again — is the published result. Abstention everywhere
+  is the published result. Grounded accuracy near zero in the gold-in-context
+  cell is the published result: "the model cannot use what it was handed" is a
+  finding about the QA layer, which is what this phase measures.
+- **No deeper k, no second cutoff, no per-arm k, no re-ranking.**
+- **No LLM adjudicates, assists, or drafts the application of any verdict.**
+- **Adjudication happens once**, before per-arm cells are assembled, blind as
+  specified. A verdict edited after the tables exist is disclosed against the
+  frozen adjudication digest, exactly as post-unblinding label edits were.
+- **The 15 unanswerable stay as frozen.** No query acquires a "partially
+  answerable" reading after output exists.
+- **`gated`'s numbers never appear without the PHASE 3b post-hoc disclosure.**
+
+### Order of operations, so the record is checkable
+
+1. This section is published and pushed **before any QA call exists** —
+   control, calibration or eval.
+2. The harness is built and tested (including the perturbation practice every
+   evaluation module here has passed), and the controls, stability repeats and
+   split control run and are recorded — calibration material only.
+3. The run: one pass, 195 distinct contexts, answers and provenance written to
+   the data directory (`<data>/qa/`), never committed — like every dataset in
+   this project.
+4. Blind adjudication of every answered answerable item; the adjudication file
+   is digest-frozen.
+5. Scoring in the format above; publication in `RESULTS.md` with the
+   disclosures attached.
+
+*Direction of effect, stated rather than buried:* for the QA behaviour itself,
+**unknown** — this section fixes how it will be measured, not what it will
+show. What can be said without guessing: nothing here touches a retrieval
+artifact or recomputes a retrieval number — the conditioning re-uses published
+outcomes and adds none — and the conditioned split cannot move the end-to-end
+figure; it can only stop the retrieval ceiling inside it from passing as QA.
+
+**Cost, stated rather than buried.** One model, one prompt, one k, one run:
+this phase reports grounded QA **at one configuration** and cannot say whether
+another model, prompt or context size would do better — the same limitation,
+for the same reason, as the one chunk size and one retrieval configuration
+recorded above. The run is 195 calls plus a dozen control and stability calls;
+at the posted `gpt-4o-mini` prices that is under one dollar, so no rule in
+this section was shaped by cost.
+
