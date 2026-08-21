@@ -671,6 +671,32 @@ it. If that is not what the data says, publish what the data says.
 Report recall@1 and recall@5 per arm per stratum. Abstention rate on the
 unanswerable set, per arm.
 
+> **CROSS-REFERENCE, 2026-08-20 — the sentence above conflicts with this
+> document's own appendix, and the appendix governs.** *"Abstention rate on the
+> unanswerable set, per arm"* reads as an instruction to score abstention at
+> the retrieval stage. The appendix's **§5 Reporting** says the opposite and is
+> the rule in force: *"Abstention is not scored here. The 15 unanswerable
+> queries carry no gold and recall is undefined for them. Abstention is a
+> property of the QA layer and is measured against it in Phases 4 and 5, never
+> against a ranked list."*
+>
+> A ranked list cannot abstain. It is a list, and it is the same length whether
+> the corpus answers the question or not; the decision to answer or decline
+> belongs to the layer reading that list. The line above is left in place rather
+> than deleted, because this file records corrections beside their originals.
+>
+> **This changes no number and no scoring rule.** The 15 carry no gold under the
+> hit definition, so they enter no recall denominator under either reading, and
+> no abstention rate has ever been computed against a ranked list. The governing
+> §5 text was itself published **before any retrieval number existed**; only
+> this cross-reference is written afterwards, and it is a pointer between two
+> parts of one document rather than a change to either.
+>
+> The 15 unanswerable queries **were** put through all three arms and their
+> rankings recorded, precisely so that Phases 4 and 5 can measure abstention
+> against what the retriever actually placed in front of the QA layer rather
+> than against a reconstruction.
+
 #### AMENDMENT 3 — QUERY STRATA RESTRATIFIED, 2026-08-19
 
 Written before a single query was written, before either index existed, and

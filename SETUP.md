@@ -82,10 +82,38 @@ python scripts/freeze_queries.py --verify
 ```
 
 It exits non-zero and names any query whose text has changed since the freeze. The same
-check is called by `query_freeze.refuse_unless_frozen`, which every retrieval arm is
-required to run before retrieving anything — so a set edited after the freeze fails loudly
-instead of quietly changing what was measured. (The arms themselves are not written yet;
-that requirement is fixed now so it cannot be relaxed later.)
+check is called by `query_freeze.refuse_unless_frozen`, which every retrieval arm runs
+before retrieving anything — so a set edited after the freeze fails loudly instead of
+quietly changing what was measured. `scripts/run_retrieval.py` calls it first, before it
+even opens the database.
+
+## 3b. The three retrieval arms
+
+`services/retrieval.py` holds the sparse, dense and hybrid arms at the parameters
+`EVALUATION-SPEC.md` pre-registered on 2026-08-19, before either index existed. Running
+them is two steps, deliberately: the first produces ranked lists, the second turns them
+into numbers.
+
+```bash
+cd backend
+python scripts/run_retrieval.py --dry-run   # every refusal, retrieves nothing
+python scripts/run_retrieval.py             # all 65 queries, both indexes
+python scripts/score_retrieval.py           # recall@1/@5 per arm per stratum
+```
+
+The split is not cosmetic. Scoring code written while the rankings are on screen gets
+shaped by them one judgement call at a time, so the scorer was written and tested before
+any arm ran — the same reason the query-set validator was built before the first query.
+
+`run_retrieval.py` needs `RAG_FILINGS_DIR`, `DATABASE_URL` and `OPENAI_API_KEY`. It writes
+ranked lists and a provenance record — every parameter, the frozen set digest, a digest
+over the query embeddings, and a sha256 of the rankings file — to a `retrieval/` directory
+beside the filings, **never into this repo**.
+
+`score_retrieval.py` needs only `RAG_FILINGS_DIR`: no database and no API, so any published
+retrieval number can be recomputed offline from the artifacts. It refuses a partial run, a
+run made against a different query-set digest, and a rankings file whose bytes no longer
+match the sha256 its provenance recorded.
 
 ## 4. Database schema
 
@@ -117,7 +145,7 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 | `RAG_FILINGS_DIR` | shell / User scope | No — defaults to `backend/corpus/filings` | `backend/corpus_paths.py` |
 | `RAG_CALIBRATION_DIR` | shell / User scope | No — defaults to `backend/corpus/calibration` | `backend/corpus_paths.py` |
 | `SEC_CONTACT_EMAIL` | shell / User scope | Yes, for any SEC fetch — **no default, by design** | `backend/sec_contact.py` |
-| `DATABASE_URL` | `backend/.env` | Only to apply a migration or rebuild the retrieval indexes — **no default, by design** | `backend/database.py` |
+| `DATABASE_URL` | `backend/.env` | To apply a migration, rebuild the retrieval indexes, or run the arms — **no default, by design**. Scoring does not need it. | `backend/database.py` |
 
 The SEC corpus itself is not committed (only its manifest is). Every corpus reader — the
 fetch scripts, the labeling app, the label checkers — resolves the filings directory through
