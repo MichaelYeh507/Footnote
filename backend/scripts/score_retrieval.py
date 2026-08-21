@@ -127,18 +127,78 @@ def check_run(provenance: dict, rankings_path: pathlib.Path,
     return problems
 
 
+def actual_sha(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_gated(path: pathlib.Path, source_sha: str):
+    """(provenance, {query_id: ranked list}) for Phase 3b's fourth arm.
+
+    Refuses a gated file built from different rankings than the ones being
+    scored. `tau` is drawn per lexeme count against one run's tsqueries, so a
+    gated file from another run is a fourth arm for other queries -- and the
+    mismatch would show up as nothing worse than a slightly different number.
+    """
+    if not path.exists():
+        raise FileNotFoundError(
+            f"no gated rankings at {path}. Run scripts/run_gated_arm.py, "
+            f"which needs the threshold measured and published first.")
+    provenance_path = (path.parent
+                       / path.name.replace("gated-rankings-",
+                                           "gated-provenance-")
+                       .replace(".jsonl", ".json"))
+    if not provenance_path.exists():
+        raise FileNotFoundError(
+            f"no provenance beside {path.name}. The fourth arm's threshold, "
+            f"seed and gate counts are what make its number readable.")
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+
+    recorded = (provenance.get("rankings") or {}).get("sha256")
+    if recorded != actual_sha(path):
+        raise ValueError(
+            f"{path.name} does not match the sha256 its provenance recorded. "
+            f"The fourth arm's ranked lists have been edited since it ran.")
+    built_from = (provenance.get("source_rankings") or {}).get("sha256")
+    if built_from != source_sha:
+        raise ValueError(
+            f"{path.name} was built from rankings {str(built_from)[:12]}... "
+            f"but the run being scored is {source_sha[:12]}.... The gate "
+            f"threshold is drawn per lexeme count against one run's queries.")
+
+    lists = {}
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                entry = json.loads(line)
+                lists[entry["query_id"]] = entry["ranking"]
+    return provenance, lists
+
+
 def _rate(row) -> str:
     low, high = row["interval"]
     return (f"{row['hits']:>3}/{row['n']:<3} = {row['rate']:.3f} "
             f"[{low:.3f}, {high:.3f}]")
 
 
+def _reported_arms(summary) -> tuple:
+    """The arms this summary holds, in reporting order.
+
+    The three pre-registered arms first and always in their published order, so
+    a Phase 3 row keeps its place when Phase 3b's row is appended below it.
+    """
+    order = scoring.ARMS + (scoring.GATED_ARM,)
+    return tuple(arm for arm in order if arm in summary["arms"])
+
+
 def _table(summary, k) -> list[str]:
     columns = [name for name in ("exact_entity", "conceptual", "pooled")
                if name in summary["arms"]["sparse"][k]]
     lines = [f"RECALL@{k}"]
-    for arm in scoring.ARMS:
-        lines.append(f"  {arm:<8}")
+    for arm in _reported_arms(summary):
+        marker = "   <- PHASE 3b, POST-HOC" \
+            if arm == scoring.GATED_ARM else ""
+        lines.append(f"  {arm:<8}{marker}")
         for column in columns:
             row = summary["arms"][arm][k][column]
             flag = "" if row["reportable"] else \
@@ -170,13 +230,16 @@ def _comparisons(summary, k) -> list[str]:
     return lines
 
 
-def report(summary: dict, provenance: dict, frozen_advisories) -> str:
+def report(summary: dict, provenance: dict, frozen_advisories,
+           gated_provenance: dict | None = None) -> str:
     counts = summary["queries"]
     dense = provenance.get("dense", {})
     sparse = provenance.get("sparse", {})
     hybrid = provenance.get("hybrid", {})
+    has_gated = scoring.GATED_ARM in summary["arms"]
     lines = [
-        "RETRIEVAL -- THREE ARMS, PRE-REGISTERED 2026-08-19",
+        "RETRIEVAL -- THREE ARMS, PRE-REGISTERED 2026-08-19"
+        + (" -- PLUS PHASE 3b" if has_gated else ""),
         "=" * 72,
         f"  run            {provenance.get('run')}",
         f"  query set      {(provenance.get('query_set') or {}).get('set_sha256')}",
@@ -190,6 +253,44 @@ def report(summary: dict, provenance: dict, frozen_advisories) -> str:
         f"  hybrid         RRF k={hybrid.get('k')}, depth={hybrid.get('depth')}",
         f"  embeddings     {dense.get('embeddings_sha256')}",
         "",
+    ]
+    if has_gated:
+        gp = gated_provenance or {}
+        fired = gp.get("gate_fired", {})
+        threshold = gp.get("threshold", {})
+        lines += [
+            "PHASE 3b -- THE GATED ARM. POST-HOC, AND THAT IS NOT A FORMALITY.",
+            "-" * 72,
+            "  The three arms above were pre-registered BLIND, before either "
+            "index existed and",
+            "  before any retrieval number was known. The gated arm was "
+            "designed AFTER those",
+            "  numbers were published, in response to a failure they revealed, "
+            "and is measured on",
+            "  the SAME 65 queries. Its number is a hypothesis consistent with "
+            "the data that",
+            "  suggested it -- never an independent confirmation. Only a "
+            "held-out query set would",
+            "  make it that, and there is not one.",
+            "",
+            f"  rule           s1 <= tau(L) removes the sparse arm from "
+            f"fusion; otherwise identical to hybrid",
+            f"  threshold      {threshold.get('percentile')}th percentile "
+            f"of a null drawn from the store, "
+            f"{threshold.get('bags_per_size')} bags per L, "
+            f"seed {threshold.get('seed')}",
+            "  gold in tau    NO -- no gold span, gold chunk, hit or recall "
+            "figure enters the threshold",
+            f"  gate fired     {fired.get('answerable_gated')}/"
+            f"{fired.get('answerable_total')} answerable"
+            + ("  (" + ", ".join(
+                f"{s} {n}/{fired.get('stratum_totals', {}).get(s)}"
+                for s, n in sorted(fired.get("by_stratum", {}).items())) + ")"
+               if fired.get("by_stratum") else ""),
+            "  tau is not moved now that it has been applied.",
+            "",
+        ]
+    lines += [
         "DENOMINATORS",
         f"  {counts['total']} queries frozen; "
         f"{counts['excluded_unanswerable']} unanswerable EXCLUDED -- they carry "
@@ -222,13 +323,35 @@ def report(summary: dict, provenance: dict, frozen_advisories) -> str:
     ]
     lines += _table(summary, 1) + [""] + _table(summary, 5) + [""]
     lines += _comparisons(summary, 1) + [""] + _comparisons(summary, 5)
+    lines += [""]
+    if has_gated:
+        # The unconditional version of this sentence is FALSE once the fourth
+        # arm is in the table: its parameters were registered on 2026-08-20,
+        # after both indexes existed and after the first three arms' numbers
+        # were known. Printing it anyway would be the exact overstatement this
+        # report is written to prevent, and it would be printed by the tool a
+        # reader trusts to check the claim.
+        lines += [
+            "The three arms' parameters were published before either index "
+            "existed and before any",
+            "query was written. The gated arm's were NOT: they were registered "
+            "2026-08-20, after",
+            "those numbers were known, and it is measured on the same queries. "
+            "Its threshold is",
+            "uncontaminated -- no gold, hit or recall enters it -- but that is "
+            "a weaker property",
+            "than blindness, and a gated figure quoted without this sentence "
+            "misrepresents it.",
+        ]
+    else:
+        lines += [
+            "Every parameter above was published before either index existed "
+            "and before any query was",
+            "written.",
+        ]
     lines += [
-        "",
-        "Every parameter above was published before either index existed and "
-        "before any query was",
-        "written. Intervals are Wilson at "
-        f"{summary['confidence']:.0%}. This project reports retrieval quality "
-        "at one",
+        f"Intervals are Wilson at {summary['confidence']:.0%}. This project "
+        "reports retrieval quality at one",
         "configuration -- one embedding model, one tsvector configuration, one "
         "RRF constant --",
         "and cannot say whether another would do better.",
@@ -243,6 +366,11 @@ def main(argv=None) -> int:
     parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--json", type=pathlib.Path, default=None,
                         help="also write summary + provenance here")
+    parser.add_argument("--gated", type=pathlib.Path, default=None,
+                        help="a gated-rankings-*.jsonl from run_gated_arm.py; "
+                             "adds PHASE 3b as a fourth row. Without it this "
+                             "script behaves exactly as it did when the three "
+                             "arms were published.")
     args = parser.parse_args(argv)
 
     queries = review.read_queries()
@@ -274,6 +402,21 @@ def main(argv=None) -> int:
 
     rankings = load_rankings(rankings_path)
     records = chunk_store.read()
+
+    gated_provenance = None
+    if args.gated is not None:
+        gated_path = args.gated
+        if not gated_path.exists():
+            gated_path = corpus_paths.retrieval_dir() / gated_path.name
+        try:
+            gated_provenance, gated_lists = load_gated(gated_path, actual_sha(
+                rankings_path))
+            rankings = scoring.merge_gated(rankings, gated_lists)
+        except (FileNotFoundError, ValueError) as exc:
+            print("REFUSING to score:")
+            print(f"  {exc}")
+            return 2
+
     try:
         summary = scoring.summarize(queries, records, rankings,
                                     confidence=args.confidence)
@@ -288,7 +431,7 @@ def main(argv=None) -> int:
     print(f"provenance : {provenance_path}")
     print(f"store      : {len(records)} chunks")
     print()
-    print(report(summary, provenance, frozen_advisories))
+    print(report(summary, provenance, frozen_advisories, gated_provenance))
 
     if args.json:
         args.json.write_text(json.dumps({

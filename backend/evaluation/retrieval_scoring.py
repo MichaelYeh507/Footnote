@@ -56,6 +56,82 @@ COMPARISONS = (("hybrid", "sparse"), ("hybrid", "dense"), ("dense", "sparse"))
 ANSWERABLE_STRATA = ("exact_entity", "conceptual")
 UNANSWERABLE = "unanswerable"
 
+# PHASE 3b, pre-registered 2026-08-20 and POST-HOC: designed after the three
+# arms above had run and been published, on the same 65 queries.
+#
+# It is deliberately **not** a member of `ARMS`. The three pre-registered arms
+# are the set every published Phase 3 number is computed over, and `RESULTS.md`
+# tells a reader to re-score that run to reproduce them. Adding a fourth name to
+# `ARMS` would make the original rankings file refuse to score, so the
+# document's own reproduction instructions would stop working -- and the repair
+# would look like a scoring change to numbers that must never move.
+#
+# Instead the fourth arm is detected from the rankings and appended. Absent, the
+# scorer behaves exactly as it did before this constant existed.
+GATED_ARM = "gated"
+
+
+def arms_present(rankings: dict) -> tuple:
+    """The three pre-registered arms, plus `gated` when the rankings carry it.
+
+    Refuses a partial gated file. A fourth arm covering some queries and not
+    others is scored over a smaller denominator than the other three, and the
+    same hits over a smaller denominator is a higher recall -- silent, and in
+    the direction that flatters the new arm.
+    """
+    with_gate = sorted(qid for qid, record in rankings.items()
+                       if GATED_ARM in record.get("arms", {}))
+    if not with_gate:
+        return ARMS
+    without = sorted(set(rankings) - set(with_gate))
+    if without:
+        raise ValueError(
+            f"{len(with_gate)} rankings carry a {GATED_ARM!r} arm and "
+            f"{len(without)} do not: {without[:5]}. A partial fourth arm is "
+            f"scored over a smaller denominator than the other three, which is "
+            f"a higher recall for the same hits.")
+    return ARMS + (GATED_ARM,)
+
+
+def comparisons_for(arms: tuple) -> tuple:
+    """Every pair to report, in the direction that puts the arm expected to win
+    first. Direction only decides which of (b, c) is which.
+
+    The three pre-registered pairs are returned unchanged and in order, so a
+    published comparison keeps its place in the output when a fourth arm joins.
+    """
+    if GATED_ARM not in arms:
+        return COMPARISONS
+    return COMPARISONS + tuple((GATED_ARM, other) for other in ARMS)
+
+
+def merge_gated(rankings: dict, gated: dict) -> dict:
+    """A copy of `rankings` with each query's `gated` list added.
+
+    A copy, not an edit: the rankings file is the authority for three published
+    arms, and a merge that mutated it in place would edit them in memory on the
+    way to a report that says they are unchanged. Only the one key is added --
+    every other arm's list is carried across unrebuilt.
+    """
+    unknown = sorted(set(gated) - set(rankings))
+    if unknown:
+        raise ValueError(
+            f"the gated file holds {unknown[:5]}, which the rankings do not. "
+            f"The fourth arm is computed from the first two; a query in one and "
+            f"not the other means the two files are from different runs.")
+    missing = sorted(set(rankings) - set(gated))
+    if missing:
+        raise ValueError(
+            f"the gated file has no entry for {missing[:5]}. Every query the "
+            f"three arms ran must have a fourth-arm ranking, or the fourth arm "
+            f"is scored over a smaller denominator.")
+    merged = {}
+    for qid, record in rankings.items():
+        arms = dict(record["arms"])
+        arms[GATED_ARM] = gated[qid]
+        merged[qid] = dict(record, arms=arms)
+    return merged
+
 
 def split_by_answerability(queries: list[dict]) -> dict:
     """The answerable queries, the excluded ones, and the stratum counts.
@@ -112,7 +188,8 @@ def ranked_ids(ranking: dict, arm: str) -> list[str]:
     return [entry[0] for entry in entries]
 
 
-def score_query(records: list[dict], query: dict, ranking: dict) -> dict:
+def score_query(records: list[dict], query: dict, ranking: dict,
+                arms: tuple = ARMS) -> dict:
     """One query's gold set and its hit/miss for every arm at every k.
 
     Validates the gold against the store first, under the pre-registered rule
@@ -129,8 +206,8 @@ def score_query(records: list[dict], query: dict, ranking: dict) -> dict:
     gold_ids = gold.gold_chunk_ids_for(records, places)
 
     known = {record["chunk_id"] for record in records}
-    arms = {}
-    for arm in ARMS:
+    scored = {}
+    for arm in arms:
         ids = ranked_ids(ranking, arm)
         unknown = [chunk_id for chunk_id in ids if chunk_id not in known]
         if unknown:
@@ -139,9 +216,9 @@ def score_query(records: list[dict], query: dict, ranking: dict) -> dict:
                 f"store does not hold. Gold is derived from the store and the "
                 f"rankings come from the database; an id in one and not the "
                 f"other scores as a miss that looks like a retrieval failure.")
-        arms[arm] = {k: gold.hit_at_k(ids, gold_ids, k) for k in K_VALUES}
+        scored[arm] = {k: gold.hit_at_k(ids, gold_ids, k) for k in K_VALUES}
     return {"query_id": qid, "stratum": query.get("stratum"),
-            "gold": gold_ids, "arms": arms}
+            "gold": gold_ids, "arms": scored}
 
 
 def recall_row(hits: int, n: int, confidence: float = 0.95) -> dict:
@@ -223,7 +300,9 @@ def summarize(queries: list[dict], records: list[dict], rankings: dict,
             f"rankings hold {extra}, which is not in the frozen query set. "
             f"Every number here is over the 65 that were reviewed.")
 
-    outcomes = [score_query(records, query, rankings[query["query_id"]])
+    reported = arms_present(rankings)
+    outcomes = [score_query(records, query, rankings[query["query_id"]],
+                            reported)
                 for query in answerable]
 
     groups = {"pooled": outcomes}
@@ -231,7 +310,7 @@ def summarize(queries: list[dict], records: list[dict], rankings: dict,
         groups[stratum] = [o for o in outcomes if o["stratum"] == stratum]
 
     arms = {}
-    for arm in ARMS:
+    for arm in reported:
         arms[arm] = {}
         for k in K_VALUES:
             arms[arm][k] = {
@@ -241,7 +320,7 @@ def summarize(queries: list[dict], records: list[dict], rankings: dict,
             }
 
     comparisons = []
-    for arm_a, arm_b in COMPARISONS:
+    for arm_a, arm_b in comparisons_for(reported):
         for k in K_VALUES:
             for name, group in groups.items():
                 if not group:
