@@ -131,6 +131,51 @@ def test_freeze_refuses_partial_coverage(tmp_path):
         adj.freeze_verdicts(path, queue)
 
 
+def _append(path, record):
+    import json
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record) + "\n")
+
+
+def test_a_retraction_returns_the_item_to_outstanding(tmp_path):
+    path = tmp_path / "verdicts.jsonl"
+    queue = adj.blind_queue([_line("q001", _ANSWERED)], [_query("q001")])
+    key = queue[0]["key"]
+    _append(path, adj.verdict_record(key, "correct", False))
+    assert adj.outstanding(queue, adj.read_verdicts(path)) == []
+    _append(path, adj.retraction_record(key))
+    assert adj.outstanding(queue, adj.read_verdicts(path)) == queue
+    # Re-judged after the retraction: judged again, and the history holds
+    # all three lines.
+    _append(path, adj.verdict_record(key, "incorrect", False))
+    assert adj.outstanding(queue, adj.read_verdicts(path)) == []
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 3
+
+
+def test_undo_target_steps_back_through_the_session(tmp_path):
+    path = tmp_path / "verdicts.jsonl"
+    assert adj.undo_target(path) is None
+    _append(path, adj.verdict_record("k0", "correct", False))
+    _append(path, adj.verdict_record("k1", "incorrect", False))
+    assert adj.undo_target(path) == "k1"
+    _append(path, adj.retraction_record("k1"))
+    # k1 is already undone; the next undo reaches back to k0.
+    assert adj.undo_target(path) == "k0"
+    # A key re-judged after its retraction is live again and undoes first.
+    _append(path, adj.verdict_record("k1", "correct", False))
+    assert adj.undo_target(path) == "k1"
+
+
+def test_freeze_refuses_a_latest_retracted_item(tmp_path):
+    path = tmp_path / "verdicts.jsonl"
+    queue = adj.blind_queue([_line("q001", _ANSWERED)], [_query("q001")])
+    key = queue[0]["key"]
+    _append(path, adj.verdict_record(key, "correct", False))
+    _append(path, adj.retraction_record(key))
+    with pytest.raises(RuntimeError, match="1 of 1 items"):
+        adj.freeze_verdicts(path, queue)
+
+
 def test_freeze_records_the_digest_and_the_ambiguous_count(tmp_path):
     import hashlib
     import json

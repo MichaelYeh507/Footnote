@@ -41,6 +41,14 @@ SHUFFLE_SEED = 20260821
 
 VERDICTS = ("correct", "incorrect")
 
+# A misclick is undone by appending a retraction, never by editing bytes:
+# the item's latest state becomes "no verdict", it returns to the queue, and
+# the click history stays in the file. The freeze and the scorer both treat
+# a latest-retracted item as unjudged -- the freeze refuses to cover it and
+# the scorer refuses to score it -- so a retraction cannot default to
+# anything.
+RETRACTED = "retracted"
+
 # The rubric, verbatim from the appendix, shown beside every item. An
 # answered item is correct iff all three hold; anything else is incorrect,
 # and an item the rubric does not clearly decide is recorded ambiguous and
@@ -128,6 +136,39 @@ def verdict_record(key: str, verdict: str, ambiguous: bool,
     }
 
 
+def retraction_record(key: str) -> dict:
+    return {
+        "key": key,
+        "verdict": RETRACTED,
+        "ambiguous": False,
+        "note": "",
+        "adjudicated_at": datetime.datetime.now().isoformat(
+            timespec="seconds"),
+    }
+
+
+def undo_target(path) -> str | None:
+    """The key an undo retracts: the most recent appended line whose key
+    still stands as a real verdict.
+
+    Walks the file from the end so repeated undo steps back through the
+    session: a retracted key is skipped (it is already undone), and a key
+    re-judged after a retraction is live again and undoes first.
+    """
+    if not path.exists():
+        return None
+    lines = [json.loads(line) for line in
+             path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    latest = {}
+    for record in lines:
+        latest[record["key"]] = record["verdict"]
+    for record in reversed(lines):
+        if (record["verdict"] != RETRACTED
+                and latest[record["key"]] != RETRACTED):
+            return record["key"]
+    return None
+
+
 def read_verdicts(path) -> dict:
     """key -> the latest verdict record for it. Last write wins.
 
@@ -146,7 +187,12 @@ def read_verdicts(path) -> dict:
 
 
 def outstanding(queue: list[dict], verdicts: dict) -> list[dict]:
-    return [item for item in queue if item["key"] not in verdicts]
+    """Items still needing a verdict. A latest-retracted item is unjudged:
+    it comes back at its queue position, which -- since judging proceeds in
+    queue order -- is the front of what remains."""
+    return [item for item in queue
+            if verdicts.get(item["key"], {}).get("verdict")
+            in (None, RETRACTED)]
 
 
 def freeze_verdicts(verdicts_path, queue: list[dict]) -> dict:

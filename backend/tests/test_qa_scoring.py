@@ -230,7 +230,15 @@ def test_direction_established_is_the_interval_test():
 def test_a_missing_verdict_refuses_by_name(world):
     verdicts = dict(VERDICTS)
     del verdicts[adj.answer_key("qB", "a B guess")]
-    with pytest.raises(ValueError, match="qB/sparse.*no verdict"):
+    with pytest.raises(ValueError, match="qB/sparse.*no standing verdict"):
+        _summary(world, verdicts)
+
+
+def test_a_retracted_verdict_refuses_rather_than_defaults(world):
+    verdicts = dict(VERDICTS)
+    verdicts[adj.answer_key("qB", "a B guess")] = {
+        "verdict": adj.RETRACTED, "ambiguous": False}
+    with pytest.raises(ValueError, match="qB/sparse.*retracted"):
         _summary(world, verdicts)
 
 

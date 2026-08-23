@@ -14,7 +14,9 @@ adjudicator sees the question, the gold span(s) and the answer text --
 the act of reading it; this file never touches the dropped fields, names
 none of them, and tests enforce both. Items arrive in a seeded shuffled
 order, one verdict per distinct (query, normalized answer), append-only
-with last write winning before the freeze.
+with last write winning before the freeze. A misclick is undone with
+Undo (z): a retraction is appended, the item returns to be re-judged, and
+no click is ever edited away.
 
 The rubric is displayed verbatim beside every item. The tie-break is part
 of it: an item the rubric does not clearly decide is recorded *ambiguous*
@@ -114,6 +116,21 @@ def build_app(queue: list[dict], verdicts_path: pathlib.Path,
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
         return JSONResponse(state())
 
+    @app.post("/api/undo")
+    async def api_undo():
+        if freeze_path.exists():
+            raise HTTPException(409, detail=(
+                "the verdict file is frozen. A change now is a disclosed "
+                "edit against the frozen digest, not a click."))
+        key = qa_adjudication.undo_target(verdicts_path)
+        if key is None:
+            raise HTTPException(422, detail="nothing to undo")
+        with open(verdicts_path, "a", encoding="utf-8",
+                  newline="\n") as handle:
+            handle.write(json.dumps(qa_adjudication.retraction_record(key),
+                                    ensure_ascii=False) + "\n")
+        return JSONResponse(state())
+
     @app.get("/", response_class=HTMLResponse)
     def index():
         return PAGE
@@ -155,11 +172,14 @@ PAGE = """<!doctype html>
     <button id="correct">Correct (c)</button>
     <button id="incorrect">Incorrect (x)</button>
     <label class="amb"><input type="checkbox" id="ambiguous"> ambiguous (a)</label>
+    <button id="undo" title="Retracts the last verdict; the item comes back to re-judge">Undo last (z)</button>
     <input id="note" placeholder="note (optional)">
   </div>
 </div>
 <div id="done" hidden>Every item is judged. Freeze the file with:
-  <code>python scripts/adjudicate_qa.py --freeze</code></div>
+  <code>python scripts/adjudicate_qa.py --freeze</code><br><br>
+  <button id="undo-done">Undo last (z)</button> if the final click was a
+  misclick.</div>
 <script>
 let current = null;
 function esc(s) { const d = document.createElement("div");
@@ -192,12 +212,19 @@ async function judge(verdict) {
     body: JSON.stringify(body) });
   if (r.ok) render(await r.json()); else alert(await r.text());
 }
+async function undo() {
+  const r = await fetch("/api/undo", { method: "POST" });
+  if (r.ok) render(await r.json()); else alert(await r.text());
+}
 document.getElementById("correct").onclick = () => judge("correct");
 document.getElementById("incorrect").onclick = () => judge("incorrect");
+document.getElementById("undo").onclick = undo;
+document.getElementById("undo-done").onclick = undo;
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" && e.target.id === "note") return;
   if (e.key === "c") judge("correct");
   if (e.key === "x") judge("incorrect");
+  if (e.key === "z") undo();
   if (e.key === "a") { const box = document.getElementById("ambiguous");
     box.checked = !box.checked; }
 });

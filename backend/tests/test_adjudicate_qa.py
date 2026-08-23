@@ -151,6 +151,36 @@ def test_bad_verdicts_are_refused(client):
         "ambiguous": False}).status_code == 422
 
 
+def test_undo_retracts_the_last_verdict_and_serves_it_again(client, world):
+    first = client.get("/api/state").json()["next"]
+    after = client.post("/api/verdict", json={
+        "key": first["key"], "verdict": "incorrect",
+        "ambiguous": False}).json()
+    assert after["done"] == 1 and after["next"]["key"] != first["key"]
+    undone = client.post("/api/undo").json()
+    assert undone["done"] == 0
+    assert undone["next"]["key"] == first["key"]
+    lines = (world / "qa" / adjudicate_qa.VERDICTS_NAME).read_text(
+        encoding="utf-8").splitlines()
+    assert len(lines) == 2  # the click and its retraction, both kept
+    assert json.loads(lines[-1])["verdict"] == "retracted"
+
+
+def test_undo_with_nothing_to_undo_is_refused(client):
+    assert client.post("/api/undo").status_code == 422
+
+
+def test_undo_after_freeze_is_refused(client, world):
+    item = client.get("/api/state").json()["next"]
+    client.post("/api/verdict", json={
+        "key": item["key"], "verdict": "correct", "ambiguous": False})
+    (world / "qa" / adjudicate_qa.FREEZE_NAME).write_text(
+        "{}", encoding="utf-8")
+    response = client.post("/api/undo")
+    assert response.status_code == 409
+    assert "frozen" in response.text
+
+
 def test_a_frozen_file_refuses_new_verdicts(client, world):
     (world / "qa" / adjudicate_qa.FREEZE_NAME).write_text(
         "{}", encoding="utf-8")

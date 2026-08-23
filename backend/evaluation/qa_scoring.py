@@ -162,11 +162,14 @@ def assemble_rows(queries: list[dict], records: list[dict],
         if answered and qid in answerable_ids:
             key = qa_adjudication.answer_key(qid, parsed["answer"])
             verdict = verdicts.get(key)
-            if verdict is None:
+            if (verdict is None
+                    or verdict.get("verdict") == qa_adjudication.RETRACTED):
                 raise ValueError(
-                    f"{qid}/{arm}: answered, but no verdict for its key "
-                    f"{key}. Every answered answerable item is adjudicated "
-                    f"before any cell is assembled.")
+                    f"{qid}/{arm}: answered, but no standing verdict for "
+                    f"its key {key} (missing or retracted). Every answered "
+                    f"answerable item is adjudicated before any cell is "
+                    f"assembled; a retraction is an un-judgement, never a "
+                    f"default.")
             row["ambiguous"] = verdict["ambiguous"]
             # Ambiguous scores incorrect in the headline: the tie resolves
             # against the pipeline.
