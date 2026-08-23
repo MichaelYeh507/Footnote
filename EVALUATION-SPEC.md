@@ -1660,6 +1660,9 @@ Return ONLY valid JSON in exactly this shape. No markdown, no explanation:
 
 {"answer": "string or null", "citation": 1, "quote": "string or null"}
 
+"answer" and "quote" are always JSON strings or null. Write numbers inside
+quotes, like "914". "citation" is a bare number from 1 to 5, or null.
+
 RULES
 
 1. Answer ONLY from the excerpts. Never use outside knowledge, and never
@@ -1672,9 +1675,11 @@ RULES
      0          an excerpt states the amount is zero, or that none occurred
      a number   an excerpt states that number
 4. If you answer: "citation" is the number (1-5) of the single excerpt your
-   answer rests on, and "quote" is a verbatim sentence or phrase copied from
-   that excerpt that states the answer. The quote must appear word for word
-   in the cited excerpt.
+   answer rests on, and "quote" is an exact, contiguous span copied character
+   for character from that excerpt, stating the answer. Never shorten, merge,
+   reword or re-punctuate it: if the supporting sentence says more than you
+   need, copy the whole sentence unchanged. A quote that does not appear word
+   for word in the cited excerpt counts as no quote at all.
 5. Answer the question as asked, including its fiscal year or period if it
    names one. The excerpt labels state each filing's fiscal period end; if
    no excerpt matches the period the question asks about, apply rule 2.
@@ -1694,6 +1699,82 @@ Question: {query}
 
 Nothing else is sent: no few-shot examples (example content would be a
 contamination vector), no per-stratum variation, no arm identification.
+
+**AMENDMENT — RULE 4 REWRITTEN AFTER A FAILED KNOWN-POSITIVE CONTROL,
+2026-08-21.** Made after this appendix was first pushed, **before any eval-set
+call existed**, under this section's own clause: a failed control permits a
+dated amendment naming what failed, and nothing after the first eval-set call
+does.
+
+**What failed, verbatim.** The known-positive control's calibration excerpt
+states: *"Costco operated 914, 890, and 861 warehouses worldwide at
+August 31, 2025, September 1, 2024, and September 3, 2023."* On all three
+stability repeats, byte-identically, the model returned:
+
+```
+{"answer": "914", "citation": 3, "quote": "Costco operated 914 warehouses worldwide at August 31, 2025."}
+```
+
+The answer is right and the citation is right, but the quote is **not in the
+excerpt** — the model collapsed the three-year sentence into a fabricated
+single-year sentence and presented it as a verbatim quote. (The known-negative
+control passed on all three repeats: the instrument expresses abstention as
+null correctly.)
+
+**Why this is the rule failing its stated intent, not the model failing the
+rule.** The quote exists so that support can be verified mechanically, with no
+LLM judge: the model must exhibit its evidence in a form `contains_span` can
+check. Under the original wording ("a verbatim sentence or phrase copied from
+that excerpt"), the model systematically paraphrases while claiming to quote —
+so the UNSUPPORTED outcome would conflate "answered without evidence" with
+"answered from real evidence, sloppily exhibited", and the phase would measure
+quote-copying discipline rather than grounding. Rule 4's original wording:
+
+> "quote" is a verbatim sentence or phrase copied from that excerpt that
+> states the answer. The quote must appear word for word in the cited excerpt.
+
+is replaced in the block above by an instruction that is explicit about
+character-for-character copying and about copying the whole sentence when it
+contains more than needed. **The verification is unchanged** — the published
+`normalize`/`contains_span`, exactly as registered; only the instruction to
+the model moved. Loosening the *check* instead (token-subset matching, fuzzy
+containment) was considered and refused: that is a dial, it weakens the one
+mechanical faithfulness test the phase has, and it moves in the direction that
+flatters the pipeline.
+
+**Instrument fingerprints:** original `1f5dba8e3ec4626acb655b79362a3aa0…`
+(the failed controls run `qa-controls-20260821-114303.json` records it, and
+is kept); the amended prompt's fingerprint is pinned in `services/qa.py` and
+re-verified against this block by test. The controls run again in full under
+the amended prompt, and the eval run remains gated on a green, current-
+fingerprint controls record.
+
+**The same control pass surfaced a second instruction defect, folded into
+this amendment because none of it was yet public.** Under the rewritten rule
+4 the quote was copied character for character on all three repeats and the
+citation was right on all three — but the answer arrived as a bare JSON
+number (`"answer": 914`) on two repeats and as the registered string
+(`"answer": "914"`) on the third. Two things follow, both recorded:
+
+1. **The instrument has run-to-run noise at temperature 0** — the three
+   repeats were not byte-identical. Characterized here as required: the
+   variation observed so far is serialization-level (number vs string), not
+   content-level; the controls record carries the raw responses.
+2. **The schema line now states the field types explicitly** — answers and
+   quotes are JSON strings or null, numbers written inside quotes, the
+   citation a bare integer. The parse check is unchanged: a number-typed
+   answer still scores `malformed`, exactly as registered. The fix is to the
+   instruction, never to the check — the same refusal as above, for the same
+   reason.
+
+*Direction of effect, stated rather than buried:* neither change can affect
+which chunks any arm retrieved, manufacture a gold citation, or turn a wrong
+answer right — both change only how the model is told to exhibit what it
+already has. They can move answers from UNSUPPORTED or `malformed` into the
+supported outcomes by making genuine evidence pass the unchanged checks,
+which is those checks' stated intent; the residual paraphrase and
+serialization failure rates, whatever they are, surface as UNSUPPORTED and
+`malformed` and are published.
 
 ### Outcomes, mechanical — computed by the published hit test, not a second one
 

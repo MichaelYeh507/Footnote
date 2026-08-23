@@ -119,3 +119,18 @@ def retrieval_dir() -> pathlib.Path:
     is still one root and no fifth variable.
     """
     return filings_dir().parent / "retrieval"
+
+
+def qa_dir() -> pathlib.Path:
+    """Where Phase 4/5's answers, adjudications and scores go.
+
+    Everything in it is either model output over corpus text (the answers),
+    hand labels (the adjudications -- the QA analogue of `labels.jsonl`), or
+    numbers derived from both. All three are evaluation data under the
+    standing rule, and the answers are additionally the artifact the
+    pre-registration's one-run clause is about: dated, kept, never committed,
+    never regenerated.
+
+    Derived from the filings location like every other data directory.
+    """
+    return filings_dir().parent / "qa"
