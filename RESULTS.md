@@ -811,3 +811,293 @@ number, because Phase 3b never asks the retriever anything.
 three arms were published, and reproduces them figure for figure. The fourth
 arm is detected from the rankings rather than being a required arm, so the
 reproduction instructions in the Phase 3 section above keep working unchanged.
+
+## Phase 4/5 — grounded QA and abstention
+
+Measured 2026-08-22/23. One model reads each query with the top 5 chunks one
+retrieval arm put in front of it, and either answers with a citation and a
+verbatim quote or declines. Every rule that moves a number — the conditioned
+split and its denominators, the context depth, the outcome taxonomy, what
+counts as an abstention, the correctness rubric, the prompt itself — was
+pre-registered in `EVALUATION-SPEC.md`'s appendix *PHASE 4/5* and **pushed
+before a single QA call existed**, control or eval. One dated amendment to
+that appendix was made after a failed known-positive control and before any
+eval-set call; it is described below, because what the control caught is
+itself evidence.
+
+**All four arms are measured** — sparse, dense, hybrid and `gated` — because
+choosing one retriever on the same 65 queries this phase reports against
+would have selected it using those labels. **Every `gated` row below inherits
+Phase 3b's post-hoc disclosure**: the arm was designed after Phase 3's
+results, on the same queries; its rows are a hypothesis consistent with the
+data that suggested it, never a confirmation.
+
+**No number in this section is comparable to Phase 2's extraction figures.**
+Different task, different denominators, different outcome definitions. The
+continuity is the model and the corpus, not the metric.
+
+### What was measured
+
+**k = 5.** The context for a query under an arm is that arm's recorded top 5,
+in rank order — read from the pinned Phase 3 and 3b artifacts, never
+re-retrieved. Top-1 would have been broken by construction (recall@1 is 0.100
+for all four arms, a conditioned denominator of 5), and anything deeper than
+5 is a retrieval cutoff this project never registered. Each excerpt is shown
+with its ticker, fiscal period end and item label. **The run touches no
+database**: rankings, gated rankings and chunk text are files verified
+against the digests the appendix publishes before the first call.
+
+**One call per distinct (query, ordered top-5) context.** `gated`'s top 5 is
+bit-identical to dense's where its gate fired and to hybrid's where it did
+not — verified from the files — so the 260 arm-query rows collapse to **195
+API calls**, and calling twice on an identical context would only have
+injected sampling noise into paired comparisons that are concordant by
+construction. A structural consequence, stated in advance in the appendix:
+`gated` vs `dense` can only be discordant on the un-gated queries, `gated`
+vs `hybrid` only on the gated ones.
+
+**The instrument** is `gpt-4o-mini` at temperature 0 with JSON output — the
+same model and posture as the Phase 2 extractor, because the phase asks
+whether grounding changes *that model's* behaviour. The full prompt is
+published verbatim in the appendix; `services/qa.py` carries it byte for
+byte, a test compares the two, and the fingerprint
+sha256(model | temperature | prompt) = `d40f2ca571301586…` is recorded in
+every artifact of the run. The model returns
+`{"answer", "citation", "quote"}`. **An abstention is exactly
+`"answer": null`** — a prose refusal is an answered item that asserts
+nothing. **195 of 195 responses parsed as the registered schema; zero were
+malformed.**
+
+**Outcomes are mechanical except one axis.** Support is verified by machine:
+the quote must appear verbatim (under the published normalization) in the
+cited excerpt, and the cited chunk either passes the pre-registered hit test
+for that query or does not — the same `retrieval_gold.py` functions the
+retrieval numbers used, called rather than re-implemented. The one
+non-mechanical axis is whether an answer's *content* agrees with the gold
+span, and that was judged by a human under a rubric fixed in the appendix,
+**blind to everything else**: the adjudication interface shows the question,
+the gold span(s) and the answer text only — no arm, no citation, no
+retrieval outcome — enforced by construction and by test, with items in a
+seeded shuffled order and one verdict per distinct (query, normalized
+answer). **No LLM judged, assisted or drafted the application of any
+verdict.** The verdict file is append-only (misclicks are corrected by
+appended retraction, never edited) and was digest-frozen before any per-arm
+cell was assembled: **69 verdicts over 69 items, 2 ambiguous**, sha256
+`dbae5560953259b4…`.
+
+**Grounded-correct**, the phase's strictest outcome, is the conjunction: the
+cited chunk passes the hit test, the quote verifies, and the human verdict
+is correct. **The conditioned split** reports accuracy separately for
+queries whose context actually contained a gold chunk and those whose
+context did not — because retrieval caps this phase at 0.500, and a single
+end-to-end number would be a retrieval number wearing a QA costume. The
+split's denominators are the published recall@5 numerators — **10 / 22 / 18
+/ 25** for sparse / dense / hybrid / gated — re-derived from the recorded
+contexts under the published hit test, and both the runner and the scorer
+refuse to run if they do not reproduce those numbers exactly. They did.
+
+### The control that failed before the run, and what it caught
+
+The harness's known-positive control plants a fact from a calibration filing
+(the Phase 2 dev set — outside the corpus, outside the store) in the third
+of five fixed excerpts and asks for it. On the first controls run the model
+answered correctly, cited correctly — and presented as its "verbatim quote"
+a sentence that **does not exist in the excerpt**: it collapsed a three-year
+parallel construction ("operated 914, 890, and 861 warehouses worldwide at
+August 31, 2025, September 1, 2024, and September 3, 2023") into a
+fabricated single-year sentence, on all three stability repeats,
+byte-identically, at temperature 0. Plausible instead of grounded, caught by
+the faithfulness check before a single eval call. A second defect surfaced
+on the re-run: the answer arrived as a bare JSON number on two of three
+repeats — the instrument's one observed run-to-run instability, at the
+serialization level.
+
+The amendment this forced is dated in the appendix and is deliberately
+narrow: **the instructions changed; the checks did not.** Loosening the
+verbatim-containment test or the type check instead was considered and
+refused by name — each is the one mechanical faithfulness guarantee the
+phase has, and each would have moved in the direction that flatters the
+pipeline. The failed control records are kept, with the superseded
+fingerprints. The third controls run passed both controls on all repeats,
+byte-identically, and the eval run was gated on that record.
+
+### Grounded accuracy, given a gold chunk in the context
+
+Can the model convert a retrieval success into a cited, quoted, correct
+answer? The denominators are each arm's recall@5 numerator, so **every cell
+in this table except `gated`'s sits below the n ≥ 25 reporting gate** — the
+counts are the data, and the rates should be read accordingly.
+
+| arm | n | grounded-correct | answered, not grounded-correct | abstained holding gold |
+|---|---|---|---|---|
+| sparse | 10 | 5/10 = 0.500 [0.237, 0.763] † | 5 | 0 |
+| dense | 22 | 4/22 = 0.182 [0.073, 0.385] † | 18 | 0 |
+| hybrid | 18 | 6/18 = 0.333 [0.163, 0.563] † | 12 | 0 |
+| gated ‡ | 25 | 5/25 = 0.200 [0.089, 0.391] | 20 | 0 |
+
+† below the n ≥ 25 gate. ‡ post-hoc; see the disclosure above.
+
+**No arm abstained while holding gold, and no response was malformed: every
+failure in this table is an answered failure.** The dominant outcome
+everywhere is answered-but-not-grounded-correct, and the adjudication notes
+say what it is made of: **scale, repeatedly** — figures reported without the
+filing's "in thousands" or "in millions" (Wynn, Honeywell, Mastercard,
+AppLovin, Kenvue all drew this note), incomplete multi-part answers, and
+citations of a non-gold excerpt while a gold chunk sat in the same context. The QA layer,
+handed the right passage, produced a grounded-correct answer between
+roughly one time in five and one time in two — and that range is the
+bottleneck this phase was built to expose.
+
+### Abstention and invention, with no gold in the context
+
+When retrieval fails, the honest behaviours are declining, or answering
+correctly from a non-gold passage that genuinely contains the answer.
+**Invention** — the registered measure — is the answered share that is
+unsupported or adjudicated incorrect.
+
+| arm | n | abstained | invention | supported non-gold (adjudicated correct) | unsupported |
+|---|---|---|---|---|---|
+| sparse | 40 | 34/40 = 0.850 [0.709, 0.929] | 6/40 = 0.150 [0.071, 0.291] | 2 (0) | 4 |
+| dense | 28 | 12/28 = 0.429 [0.265, 0.609] | 11/28 = 0.393 [0.236, 0.576] | 9 (5) | 7 |
+| hybrid | 32 | 19/32 = 0.594 [0.423, 0.745] | 9/32 = 0.281 [0.156, 0.454] | 7 (4) | 6 |
+| gated ‡ | 25 | 10/25 = 0.400 [0.234, 0.593] | 10/25 = 0.400 [0.234, 0.593] | 8 (5) | 7 |
+
+The shape is consistent and worth naming, without claiming a direction the
+paired data does not carry: **sparse's failed retrievals are off-topic, so
+the model declines; dense's failed retrievals are plausible, so the model
+answers from them.** Some of those answers are real — dense answered
+correctly from a non-gold passage 5 times, a limitation of accession-scoped
+gold surfacing exactly where the pre-registration said it would be reported,
+credited to neither grounded accuracy nor invention. One caveat inside the
+invention counts, disclosed so the number reads no worse than it is: one of
+dense's and gated's unsupported items is the model attempting to abstain
+and breaking the schema — the literal string `"null"` rather than JSON
+null. Under the registered rule only JSON null abstains, so it scores as an
+answered, unsupported item; it asserts nothing, but it is counted against
+the pipeline rather than for it.
+
+### Abstention on the 15 unanswerable queries
+
+| arm | abstained |
+|---|---|
+| sparse | 15/15 = 1.000 [0.796, 1.000] |
+| dense | 15/15 = 1.000 [0.796, 1.000] |
+| hybrid | 15/15 = 1.000 [0.796, 1.000] |
+| gated ‡ | 15/15 = 1.000 [0.796, 1.000] |
+
+**Every arm declined every unanswerable query — 60 of 60 opportunities to
+invent, all declined** — and the six arm pairs agree on every query (b = 0,
+c = 0 throughout), so no paired interval is even defined. n = 15 is below
+the reporting gate and the interval floor is 0.796; what can be said is the
+count, and the count is total. Several of these queries have answers the
+model plausibly "knows" from pretraining — the set was built that way
+deliberately — and it declined them anyway. This is the cell Phase 2 could
+not produce: that extractor returned a value for all 351 instances and
+invented on silent filings; this pipeline, grounded and licensed to decline,
+declined every time the corpus was silent. The two measurements are not
+numerically comparable, and the qualitative contrast is the point.
+
+### End-to-end, with the ceiling it cannot exceed
+
+| arm | grounded-correct (n=50) | retrieval ceiling (recall@5) |
+|---|---|---|
+| sparse | 5/50 = 0.100 [0.043, 0.214] | 10/50 = 0.200 |
+| dense | 4/50 = 0.080 [0.032, 0.188] | 22/50 = 0.440 |
+| hybrid | 6/50 = 0.120 [0.056, 0.238] | 18/50 = 0.360 |
+| gated ‡ | 5/50 = 0.100 [0.043, 0.214] | 25/50 = 0.500 |
+
+About one answerable question in ten ends in a grounded-correct cited
+answer, at this configuration. The ceiling column is why the conditioned
+tables above exist: without it, gated's 0.100 would read as a QA number when
+half of it is retrieval.
+
+### Which directions the data establishes, and which it does not
+
+Same rule as every comparison in this document: paired discordants (b, c),
+Wilson on b/(b+c), a direction only where the interval excludes 0.5. On
+**grounded-correct over the 50 answerable queries, no direction is
+established between any pair of arms** — all six intervals straddle 0.5,
+with discordant counts of 1 to 10, every one below the reporting gate:
+
+| pair | b | c | b/(b+c) | interval | |
+|---|---|---|---|---|---|
+| sparse vs dense | 5 | 4 | 0.556 | [0.267, 0.811] | undetermined |
+| sparse vs hybrid | 3 | 4 | 0.429 | [0.158, 0.750] | undetermined |
+| sparse vs gated ‡ | 5 | 5 | 0.500 | [0.237, 0.763] | undetermined |
+| dense vs hybrid | 1 | 3 | 0.250 | [0.046, 0.699] | undetermined |
+| dense vs gated ‡ | 0 | 1 | 0.000 | [0.000, 0.793] | undetermined |
+| hybrid vs gated ‡ | 2 | 1 | 0.667 | [0.208, 0.939] | undetermined |
+
+On abstention over the 15 unanswerable, all six pairs agree on every query.
+
+**What n = 50 did not detect is itself the finding**: retrieval ceilings
+spanning 0.200 to 0.500 did not propagate into detectably different
+grounded accuracy, because the arms convert their in-context chances at
+different rates — sparse converted 5 of its 10, dense 4 of its 22. Stated
+as point estimates, not directions. One project decision follows and is
+recorded here because the pre-registration tied it to this outcome: the
+held-out query set's named trigger — *build it only if Phase 4/5 shows arm
+choice actually changes grounded accuracy* — **does not fire**.
+
+### The wrong year, cited with the year label in view
+
+Under AMENDMENT 5, 11 of the 50 answerable queries carry gold whose text
+also appears, byte-identical, in the same issuer's other fiscal year — a
+coin flip no text-only retriever can call. The QA layer is past that
+excuse: every excerpt is labelled with its fiscal period end. It cited the
+right passage from the wrong filing anyway — **dense 4 times, gated 4,
+hybrid 1, sparse 0, and every single one on a flagged query**. Gold stays
+accession-scoped, so none of these are credited; the count is disclosed as
+the appendix requires. The trap that began as a store measurement
+(217 duplicate groups) and became a retrieval advisory is, at the QA layer,
+a real model error with the disambiguating label in view.
+
+### Ambiguous verdicts, reported both ways
+
+Two items drew the ambiguous flag — both cases where agreement between
+answer and gold span could not be determined from the span, recorded with
+notes. Both are scored **incorrect** in every table above (the tie resolves
+against the pipeline). Recomputed with them excluded, no cell moves by more
+than its own uncertainty: dense's grounded accuracy becomes 4/21 = 0.190,
+gated's 5/24 = 0.208, hybrid's abstention 19/31 = 0.613, end-to-end 4/49 /
+6/49 / 5/49 for dense / hybrid / gated; sparse is untouched.
+
+### What these numbers do not claim
+
+- **Any comparison with Phase 2's figures.** Said at the top and repeated
+  here: different task, different denominators.
+- **Any direction between arms at the QA layer.** All six paired intervals
+  straddle 0.5. "Sparse converts better" is a point-estimate lean, not a
+  finding.
+- **That the conditioned rates are stable.** Every gold-in-context cell but
+  gated's is below the n ≥ 25 gate; the counts are the data.
+- **That abstention generalises.** 15/15 is an interval floor of 0.796, on
+  one query set, one corpus, one prompt.
+- **Anything beyond one configuration.** One model, one prompt, one k, one
+  run — the same limitation, for the same reason, as the one chunk size and
+  one retrieval configuration above. A better prompt may exist; it was not
+  searched for, because a prompt tuned on eval output is a dial.
+- **That the correctness axis is more than one blinded human's rubric'd
+  judgment.** The rubric, the blinding and the tie-break are published; the
+  judgment is attested by the frozen verdict file, not mechanically
+  verifiable.
+- **That supported-non-gold answers validate the retriever.** They surface a
+  known limitation of accession-scoped gold, and are reported on their own
+  line for exactly that reason.
+
+### Reproducing the QA numbers
+
+```
+python scripts/run_qa.py --dry-run     # verifies every pin; calls nothing
+python scripts/score_qa.py             # recomputes every cell above. No API.
+```
+
+`score_qa.py` re-reads the recorded answers
+(`answers-20260822-220946.jsonl`, sha256 `9ae919060c41798e…`, verified
+against the run's provenance) and the frozen verdicts (sha256
+`dbae5560953259b4…`), re-derives the conditioned split from the pinned
+rankings, and **refuses to score** if any digest mismatches, if the split
+fails to reproduce 10/22/18/25, or if any answered answerable item lacks a
+standing verdict. The answers are never regenerated: the pre-registration's
+one-run clause means the recorded responses are the phase's data, the same
+way the recorded rankings are Phase 3's.
