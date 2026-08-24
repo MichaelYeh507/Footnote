@@ -22,7 +22,7 @@ export function DeleteExtractionButton({
     setError(null);
     try {
       await deleteExtraction(extractionId);
-      router.push("/");
+      router.push("/extractions");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");

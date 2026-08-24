@@ -3,8 +3,11 @@
 `services/supabase_client.py` is the application's database client and it talks
 PostgREST. PostgREST cannot issue DDL and cannot COPY, and Phase 3 needs both:
 migration 003 creates a table, a GIN index and an HNSW index, and the loader
-writes 11,621 rows. So there is a second path to the same database, used only
-by migrations and by the corpus-loading scripts -- never by the API.
+writes 11,621 rows. So there is a second path to the same database, used by
+migrations, by the corpus-loading scripts, and (since the Phase 4/5 QA surface,
+2026-08-23) by `POST /api/qa` -- the retrieval arms are SQL over
+`tsvector`/`pgvector`, which PostgREST cannot express. Everything else in the
+API stays on PostgREST.
 
     DATABASE_URL   required; no default, by design
 

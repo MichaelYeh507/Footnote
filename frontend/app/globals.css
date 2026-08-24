@@ -24,3 +24,167 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- Ask surface backdrop -------------------------------------------------
+   The reference's architecture: a photograph as the full-bleed base layer
+   (/backdrop.avif — local, gitignored; see BackdropArt.tsx), with the
+   animation as an effects layer over it. The photo is washed toward pastel
+   (blur/brightness/saturation) so text stays legible; its mask carries three
+   big soft openings whose positions sweep the ENTIRE canvas, and the photo
+   itself breathes with a slow scale. Two animations, different periods, so
+   the composite never visibly repeats. Disabled under
+   prefers-reduced-motion. */
+
+.qa-photo {
+  position: absolute;
+  inset: 0;
+  background-image: url("/backdrop.avif");
+  background-size: cover;
+  background-position: center;
+  filter: blur(4px) saturate(0.75) brightness(1.22) contrast(0.82);
+  opacity: 0.75;
+  transform-origin: center;
+  will-change: transform, mask-position;
+  -webkit-mask-image:
+    radial-gradient(closest-side, #000 0 32%, transparent 74%),
+    radial-gradient(closest-side, #000 0 28%, transparent 72%),
+    radial-gradient(closest-side, #000 0 30%, transparent 75%);
+  mask-image:
+    radial-gradient(closest-side, #000 0 32%, transparent 74%),
+    radial-gradient(closest-side, #000 0 28%, transparent 72%),
+    radial-gradient(closest-side, #000 0 30%, transparent 75%);
+  -webkit-mask-size:
+    880px 600px,
+    620px 440px,
+    300px 200px;
+  mask-size:
+    880px 600px,
+    620px 440px,
+    300px 200px;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position:
+    18% 22%,
+    92% 15%,
+    55% 105%;
+  mask-position:
+    18% 22%,
+    92% 15%,
+    55% 105%;
+  animation:
+    qa-breathe 13s ease-in-out infinite alternate,
+    qa-reveal 14s ease-in-out infinite;
+}
+
+/* The photo's slow breathing. cover + inset-0 means scaling up never
+   exposes an edge. Kept subtle so the masses' own travel dominates. */
+@keyframes qa-breathe {
+  0% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+/* The reference's choreography: compact organic masses that TRAVEL, bloom
+   in, dissolve out and leave the canvas — position and size animate
+   together, and 0% equals 100% so the loop is seamless.
+   Mass A sweeps left-to-right and dissolves off the right edge before
+   blooming back. Mass B glides a continuous counter-clockwise arc, pulsing.
+   Mass C rises from the bottom, crosses, and slips out the top at near-zero
+   size. Off-canvas percentages (<0, >100) are how a mass exits entirely. */
+@keyframes qa-reveal {
+  0%,
+  100% {
+    -webkit-mask-position:
+      18% 22%,
+      92% 15%,
+      55% 105%;
+    mask-position:
+      18% 22%,
+      92% 15%,
+      55% 105%;
+    -webkit-mask-size:
+      880px 600px,
+      620px 440px,
+      300px 200px;
+    mask-size:
+      880px 600px,
+      620px 440px,
+      300px 200px;
+  }
+  25% {
+    -webkit-mask-position:
+      48% 30%,
+      70% 55%,
+      45% 70%;
+    mask-position:
+      48% 30%,
+      70% 55%,
+      45% 70%;
+    -webkit-mask-size:
+      1100px 720px,
+      900px 640px,
+      800px 560px;
+    mask-size:
+      1100px 720px,
+      900px 640px,
+      800px 560px;
+  }
+  50% {
+    -webkit-mask-position:
+      85% 45%,
+      40% 75%,
+      25% 25%;
+    mask-position:
+      85% 45%,
+      40% 75%,
+      25% 25%;
+    -webkit-mask-size:
+      700px 480px,
+      1050px 700px,
+      950px 660px;
+    mask-size:
+      700px 480px,
+      1050px 700px,
+      950px 660px;
+  }
+  75% {
+    -webkit-mask-position:
+      108% 60%,
+      12% 40%,
+      45% -8%;
+    mask-position:
+      108% 60%,
+      12% 40%,
+      45% -8%;
+    -webkit-mask-size:
+      70px 48px,
+      760px 520px,
+      50px 34px;
+    mask-size:
+      70px 48px,
+      760px 520px,
+      50px 34px;
+  }
+}
+
+/* A fixed pale band where the headline and picker live, so legibility never
+   depends on where the reveals happen to be. */
+.qa-shield {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    48% 34% at 50% 40%,
+    rgba(247, 248, 248, 0.72) 0%,
+    rgba(247, 248, 248, 0.32) 52%,
+    transparent 78%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-photo {
+    animation: none;
+  }
+}

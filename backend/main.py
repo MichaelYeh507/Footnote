@@ -1,6 +1,11 @@
+import openai
+import psycopg
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+import database
+from services import qa_demo, retrieval
 from services.pipeline import SUPPORTED_EXTENSIONS, process_report
 from services.supabase_client import (
     create_report,
@@ -86,6 +91,61 @@ def remove_report(report_id: str):
     if not result.get("deleted"):
         raise HTTPException(404, "Report not found")
     return result
+
+
+class QARequest(BaseModel):
+    question: str
+    arm: str
+
+
+@app.post("/api/qa")
+def qa_answer(body: QARequest):
+    """One live question through one retrieval arm and the measured QA
+    instrument (`services/qa.py`, unchanged -- the response carries its
+    fingerprint).
+
+    Live demo answers are demonstrations, not measurements: nothing here is
+    recorded, and the Phase 4/5 numbers in `RESULTS.md` are the published
+    ones. The direct-Postgres path is required because the arms are SQL over
+    `tsvector`/`pgvector`, which PostgREST cannot express.
+    """
+    try:
+        url = database.url()
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+
+    taus = None
+    if body.arm == "gated":
+        try:
+            taus = qa_demo.load_taus()
+        except FileNotFoundError as exc:
+            raise HTTPException(503, str(exc))
+
+    client = None
+    if body.arm != "sparse":
+        try:
+            client = retrieval.embedding_client()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc))
+
+    try:
+        # autocommit so no transaction stays open across the model call; the
+        # arms only read.
+        with psycopg.connect(url, connect_timeout=30,
+                             autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                return qa_demo.answer_question(
+                    body.question, body.arm, cursor=cursor, client=client,
+                    taus=taus)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except LookupError as exc:
+        # The gated arm refusing a lexeme count tau(L) was never measured for.
+        raise HTTPException(422, str(exc))
+    except psycopg.OperationalError as exc:
+        raise HTTPException(503, f"database unreachable: {exc}")
+    except openai.OpenAIError as exc:
+        raise HTTPException(502, f"model call failed: {exc}")
 
 
 @app.get("/")
