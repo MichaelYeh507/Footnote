@@ -42,6 +42,37 @@ npm run dev
 Opens on http://localhost:3000. `NEXT_PUBLIC_API_URL` is optional; it defaults to
 `http://localhost:8000`.
 
+## 2a. The QA surface
+
+The home page asks a live question through `POST /api/qa`: retrieval runs fresh under any
+of the four arms at their pre-registered parameters, and the answer comes from the measured
+instrument — `services/qa.py` unchanged, with its sha256 in every response. Live answers
+are demonstrations, not measurements, and are written nowhere: no file, no table, no log
+line carries them.
+
+Beyond the base setup above, the endpoint needs two values in `backend/.env`:
+
+- `DATABASE_URL` — the arms are SQL over the chunk store's tsvector and pgvector indexes,
+  which PostgREST cannot express. Unset, the endpoint answers 503 naming the variable; the
+  rest of the app runs without it.
+- `OPENAI_API_KEY` — embeds the question (every arm but sparse) and makes the model call.
+
+The gated arm has two extra conditions, both refusals rather than fallbacks:
+
+- Its threshold artifact (`gate-threshold-*.json`, written by
+  `scripts/measure_gate_threshold.py` into the `retrieval/` directory beside the filings)
+  must exist — 503 without it.
+- `tau(L)` exists only for the lexeme counts the frozen query set contained; a question
+  with any other count is refused (422) with the measured sizes named. The published rule
+  is defined where it was measured, and the demo does not extrapolate it — ask under
+  another arm instead.
+
+The backdrop photograph at `frontend/public/backdrop.avif` is deliberately not committed —
+third-party media stays out of this public repository. The surface renders without it (the
+photo layer is simply empty); to get the full backdrop, place a licensed image of your own
+at that path. Everything else — the wash, the masks, the motion — is CSS treatment in the
+repo.
+
 ## 3. Tests
 
 ```bash
@@ -166,7 +197,7 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 
 | Variable | Where | Required | Read by |
 |---|---|---|---|
-| `OPENAI_API_KEY` | `backend/.env` | Yes — crashes at import if unset | `services/openai_structurer.py` |
+| `OPENAI_API_KEY` | `backend/.env` | Yes — crashes at import if unset | `services/openai_structurer.py`; `services/retrieval.py` + `services/qa.py` for `POST /api/qa` |
 | `SUPABASE_URL` | `backend/.env` | Yes | `services/supabase_client.py` |
 | `SUPABASE_SERVICE_KEY` | `backend/.env` | Yes | `services/supabase_client.py` |
 | `SUPABASE_ANON_KEY` | `backend/.env` | No — currently unread | — |
@@ -174,7 +205,7 @@ python scripts/export_corpus.py <output-dir-outside-the-repo>
 | `RAG_FILINGS_DIR` | shell / User scope | No — defaults to `backend/corpus/filings` | `backend/corpus_paths.py` |
 | `RAG_CALIBRATION_DIR` | shell / User scope | No — defaults to `backend/corpus/calibration` | `backend/corpus_paths.py` |
 | `SEC_CONTACT_EMAIL` | shell / User scope | Yes, for any SEC fetch — **no default, by design** | `backend/sec_contact.py` |
-| `DATABASE_URL` | `backend/.env` | To apply a migration, rebuild the retrieval indexes, or run the arms — **no default, by design**. Scoring does not need it. | `backend/database.py` |
+| `DATABASE_URL` | `backend/.env` | To apply a migration, rebuild the retrieval indexes, run the arms, or answer a live question (`POST /api/qa`) — **no default, by design**. Scoring does not need it. | `backend/database.py` |
 
 The SEC corpus itself is not committed (only its manifest is). Every corpus reader — the
 fetch scripts, the labeling app, the label checkers — resolves the filings directory through
@@ -187,7 +218,9 @@ corpus from the committed manifest into whichever location is configured.
 `services/supabase_client.py` talks PostgREST, which can neither issue DDL nor
 `COPY`. Migration 003 creates the chunk table with its GIN and HNSW indexes, and
 `scripts/load_chunks.py` bulk-loads 11,621 rows, so both need a direct
-connection. The API itself does not — leave this unset to run the app.
+connection. So does `POST /api/qa` — the arms are SQL over those indexes. Leave
+this unset and everything else still runs; the QA endpoint answers 503 naming
+the variable.
 
 Two traps, and they report the *same* misleading error:
 
