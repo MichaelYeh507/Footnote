@@ -25,6 +25,15 @@ export type QaResponse = {
   arm: Arm;
   state: "answered" | "abstained" | "malformed" | "no_passages";
   answer: string | null;
+  /**
+   * LLM-style prose over the verified fields, from a second UNMEASURED
+   * model call — composed only when the citation is valid and the quote
+   * verbatim-verified, guarded against carrying any digit the verified
+   * material did not, null whenever composition was skipped or declined.
+   * The UI labels it as presentation; `answer` stays the frozen
+   * instrument's own words.
+   */
+  presentation: string | null;
   citation: number | null;
   quote: string | null;
   citation_valid: boolean | null;

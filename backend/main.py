@@ -134,7 +134,7 @@ def qa_answer(body: QARequest):
         with psycopg.connect(url, connect_timeout=30,
                              autocommit=True) as connection:
             with connection.cursor() as cursor:
-                return qa_demo.answer_question(
+                record = qa_demo.answer_question(
                     body.question, body.arm, cursor=cursor, client=client,
                     taus=taus)
     except ValueError as exc:
@@ -146,6 +146,13 @@ def qa_answer(body: QARequest):
         raise HTTPException(503, f"database unreachable: {exc}")
     except openai.OpenAIError as exc:
         raise HTTPException(502, f"model call failed: {exc}")
+
+    # Presentation prose rides OUTSIDE the measured path and its error
+    # mapping: compose_paragraph never raises, runs only on the fully
+    # verified path, and a declined composition leaves the verified record
+    # exactly as `answer_question` returned it.
+    record["presentation"] = qa_demo.compose_paragraph(record)
+    return record
 
 
 @app.get("/")

@@ -1,7 +1,7 @@
 """The QA surface's orchestration: live retrieval into the measured instrument.
 
 Built 2026-08-23, AFTER Phase 4/5 was published -- this module is product, not
-measurement, and three rules keep that boundary hard:
+measurement, and four rules keep that boundary hard:
 
 - **The instrument is reused, never restated.** The default `ask` is literally
   `services/qa.py`'s -- the prompt that is byte-checked against the published
@@ -12,6 +12,14 @@ measurement, and three rules keep that boundary hard:
   no file, no table, no log line carrying content. The Phase 4/5 answers file
   is that phase's data, closed on 2026-08-22, and demo usage never becomes a
   reported number.
+- **Presentation prose never replaces the verified fields.** The paragraph
+  `compose_paragraph` writes (2026-08-24, owner-directed) is a SECOND,
+  unmeasured model call over the already-verified answer, quote and
+  citation metadata -- composed only when all three verified, guarded so it
+  can carry no digit the material did not and must contain the frozen
+  answer verbatim, attached by the endpoint after `answer_question`
+  returns, and labeled as presentation in the UI. Any failure yields None
+  and the terse verified display stands.
 - **Where the demo cannot run the published rule, it refuses rather than
   improvising.** The gated arm's threshold `tau(L)` was measured for the
   lexeme counts the frozen query set happened to contain; a fresh question
@@ -33,6 +41,10 @@ published check would not have matched.
 """
 
 import json
+import os
+import re
+
+import openai
 
 from evaluation import gate
 from evaluation import qa_outcomes
@@ -256,6 +268,7 @@ def answer_question(question: str, arm: str, *, cursor, client,
         "raw": None,
         "usage": None,
         "attempts": None,
+        "presentation": None,
     }
 
     if not excerpts:
@@ -295,3 +308,107 @@ def answer_question(question: str, arm: str, *, cursor, client,
                 citation=citation, quote=parsed["quote"],
                 citation_valid=valid, quote_verified=verified,
                 highlight=highlight)
+
+
+# --- presentation prose (UNMEASURED; the endpoint attaches it) ----------
+
+# The same model family as the instrument, but this call is presentation,
+# not measurement: nothing it produces is scored or recorded, and it is
+# not covered by INSTRUMENT_SHA256 -- the UI labels the paragraph as
+# presentation and keeps the verified answer, quote and chips in view.
+PRESENTATION_MODEL = qa.MODEL
+PRESENTATION_MAX_TOKENS = 160
+
+PRESENTATION_PROMPT = (
+    "You restate an already-computed answer as one to three plain "
+    "sentences, the way an assistant would state it. Use ONLY the material "
+    "provided: the question, the answer, the verified quote from the "
+    "filing, and the citation line. Include the answer text verbatim "
+    "inside your sentences. Do not add any fact, figure, date, unit or "
+    "name that does not appear in the material, and do not use outside "
+    "knowledge. End your final sentence with the bracketed citation marker "
+    "alone (for example: [1]); do not restate the rest of the citation "
+    "line after it.")
+
+
+def _presentation_material(record: dict) -> str:
+    """What the composer is shown -- the verified pieces and nothing else.
+
+    Deliberately NOT the excerpt text: prose built from unquoted context
+    would put unverified content ahead of the verified quote. The guard
+    below derives its allowed digit runs from this same string, so the two
+    cannot drift apart.
+    """
+    citation = record["citation"]
+    excerpt = record["excerpts"][citation - 1]
+    item = excerpt["item"] or "—"
+    return (
+        f"Question: {record['question']}\n"
+        f"Answer: {record['answer']}\n"
+        f"Verified quote from the filing: {record['quote']}\n"
+        f"Citation line: [{citation}] {excerpt['ticker']} 10-K, fiscal "
+        f"period ending {excerpt['period']}, Item {item}")
+
+
+def presentation_passes_guard(paragraph, record: dict) -> bool:
+    """True only if the paragraph invents nothing the material did not carry.
+
+    Two mechanical checks: every digit run in the paragraph (commas
+    stripped) must appear as a run in the material, and the frozen answer
+    must appear verbatim under the published `normalize`. Rejection is
+    cheap -- the UI falls back to the terse verified display -- so the
+    guard errs strict: a paragraph that reformats the answer's own digits
+    is dropped rather than trusted.
+    """
+    try:
+        if not isinstance(paragraph, str) or not paragraph.strip():
+            return False
+        needle = gold.normalize(record["answer"])
+        if not needle or needle not in gold.normalize(paragraph):
+            return False
+        material = _presentation_material(record)
+        allowed = set(re.findall(r"\d+", material.replace(",", "")))
+        runs = re.findall(r"\d+", paragraph.replace(",", ""))
+        return all(run in allowed for run in runs)
+    except Exception:
+        return False
+
+
+def compose_paragraph(record: dict, client=None):
+    """LLM-style prose over the verified fields, or None.
+
+    Runs ONLY on the fully verified path -- state answered, citation
+    valid, quote verbatim-verified -- and never raises: transport
+    failures, shape surprises and guard rejections all yield None, and
+    the UI falls back to the terse verified display. Called by the
+    endpoint AFTER `answer_question` returns; the measured-path
+    orchestration never composes prose. Writes nothing anywhere, like
+    everything else here.
+    """
+    try:
+        if record.get("state") != "answered":
+            return None
+        if record.get("citation_valid") is not True:
+            return None
+        if record.get("quote_verified") is not True:
+            return None
+        answer = record.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            return None
+        material = _presentation_material(record)
+        if client is None:
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model=PRESENTATION_MODEL,
+            temperature=0,
+            max_tokens=PRESENTATION_MAX_TOKENS,
+            messages=[
+                {"role": "system", "content": PRESENTATION_PROMPT},
+                {"role": "user", "content": material},
+            ])
+        paragraph = (response.choices[0].message.content or "").strip()
+        if not presentation_passes_guard(paragraph, record):
+            return None
+        return paragraph
+    except Exception:
+        return None

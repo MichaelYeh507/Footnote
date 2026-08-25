@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ARMS,
   DEFAULT_ARM,
-  EXAMPLES,
   QaError,
   askQuestion,
   type Arm,
@@ -21,6 +20,55 @@ type Phase =
 
 /** The display face; small functional labels stay on the sans. */
 const SERIF = "font-[family-name:var(--font-serif)]";
+
+/**
+ * Streamed reveal for the response text, paced like an LLM answering:
+ * word-sized bursts (occasionally two) on a slightly irregular 90–200ms
+ * cadence, ~8 words a second. A reveal cadence over the already-returned
+ * text, not a transport claim. Instant under prefers-reduced-motion,
+ * matching the backdrop's rule.
+ */
+function useTyped(text: string) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const reduced =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (reduced || !text) {
+      setCount(text.length);
+      return;
+    }
+    setCount(0);
+    // Cumulative char offsets at each word boundary (trailing space kept
+    // with its word so the reveal never ends mid-gap).
+    const stops: number[] = [];
+    const words = /\S+\s*/g;
+    let match;
+    while ((match = words.exec(text))) {
+      stops.push(match.index + match[0].length);
+    }
+    let at = 0;
+    let timer = 0;
+    const step = () => {
+      at += Math.random() < 0.15 ? 2 : 1;
+      if (at >= stops.length) {
+        setCount(text.length);
+        return;
+      }
+      setCount(stops[at - 1]);
+      timer = window.setTimeout(step, 90 + Math.random() * 110);
+    };
+    timer = window.setTimeout(step, 150);
+    return () => clearTimeout(timer);
+  }, [text]);
+  return { shown: text.slice(0, count), done: count >= text.length };
+}
+
+/** The thin bar at the end of text while it is still typing. */
+function Caret() {
+  return (
+    <span className="ml-1 inline-block h-[0.9em] w-0.5 translate-y-[0.12em] rounded-full bg-zinc-400 align-baseline" />
+  );
+}
 
 export function AskSurface() {
   const [question, setQuestion] = useState("");
@@ -129,7 +177,7 @@ export function AskSurface() {
         </div>
       </form>
 
-      {/* Loading */}
+      {/* Loading — the owner prefers the plain pipeline line here. */}
       {phase.kind === "loading" && (
         <p className="mx-auto mt-14 animate-pulse text-sm text-zinc-400">
           retrieving passages → asking gpt-4o-mini…
@@ -173,30 +221,6 @@ export function AskSurface() {
         <Result key={phase.nonce} res={phase.res} onReset={reset} />
       )}
       </div>
-
-      {/* Idle: example cards anchored at the bottom edge, the reference's
-          template row. */}
-      {atHero && (
-        <div className="mx-auto w-full max-w-4xl">
-          <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex.question}
-                type="button"
-                onClick={() => {
-                  setQuestion(ex.question);
-                  submit(ex.question);
-                }}
-                className={`flex min-h-28 flex-1 items-end rounded-2xl bg-gradient-to-br p-4 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 ${ex.gradient}`}
-              >
-                <span className={`${SERIF} text-sm leading-snug`}>
-                  {ex.question}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Footer: one quiet link; everything it explains lives inside. */}
       <footer className="mx-auto w-full max-w-4xl pb-5 pt-6 text-center">
@@ -276,12 +300,33 @@ function Result({ res, onReset }: { res: QaResponse; onReset: () => void }) {
       ? res.citation
       : null;
 
+  // The one line that types; everything beneath fades in once it lands.
+  const primaryText =
+    res.state === "answered"
+      ? (res.presentation ?? res.answer ?? "")
+      : res.state === "abstained"
+        ? "The corpus does not support an answer to this question."
+        : "";
+  const { shown: typedText, done: typedDone } = useTyped(primaryText);
+  const AFTER = `transition-opacity duration-500 ${
+    typedDone ? "opacity-100" : "opacity-0"
+  }`;
+
+  // Collapsed by default (owner-decided 2026-08-25): provenance stays one
+  // click away, never removed. The cited link opens it before scrolling.
+  const [showExcerpts, setShowExcerpts] = useState(false);
+
   function scrollToCited() {
     if (cited === null) return;
-    excerptRefs.current[cited - 1]?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+    setShowExcerpts(true);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        excerptRefs.current[cited - 1]?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        }),
+      ),
+    );
   }
 
   return (
@@ -289,42 +334,63 @@ function Result({ res, onReset }: { res: QaResponse; onReset: () => void }) {
       {/* The verdict block */}
       {res.state === "answered" && (
         <div>
-          <p
-            className={`${SERIF} text-2xl font-light leading-snug text-zinc-800 md:text-3xl`}
+          {res.presentation ? (
+            <>
+              <p
+                className={`${SERIF} max-w-2xl text-lg font-light leading-relaxed text-zinc-800 md:text-xl`}
+              >
+                {typedText}
+                {!typedDone && <Caret />}
+              </p>
+              <p
+                className={`mt-2 text-[10px] tracking-wide text-zinc-400 ${AFTER}`}
+              >
+                presentation prose over the verified answer — the verbatim
+                quote is highlighted in the cited excerpt below
+              </p>
+            </>
+          ) : (
+            <p
+              className={`${SERIF} text-2xl font-light leading-snug text-zinc-800 md:text-3xl`}
+            >
+              {typedText}
+              {!typedDone && <Caret />}
+            </p>
+          )}
+          <div
+            className={`mt-5 flex flex-wrap items-baseline gap-x-6 gap-y-1.5 text-xs ${AFTER}`}
           >
-            {res.answer}
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
             {cited !== null ? (
               <button
                 type="button"
                 onClick={scrollToCited}
-                className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-800 transition-colors hover:bg-blue-100"
+                className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 hover:decoration-zinc-500"
               >
-                cited excerpt [{cited}] ·{" "}
-                {res.excerpts[cited - 1]?.ticker} 10-K · FY end{" "}
-                {res.excerpts[cited - 1]?.period}
+                cited: [{cited}] {res.excerpts[cited - 1]?.ticker} 10-K · FY
+                end {res.excerpts[cited - 1]?.period}
               </button>
             ) : (
-              <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-amber-800">
+              <span className="text-amber-700">
                 ⚠ cited excerpt [{String(res.citation)}] does not exist (1–
                 {res.excerpts.length})
               </span>
             )}
             {res.quote_verified === true && (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-800">
+              <span className="text-emerald-700">
                 ✓ verbatim quote verified in the cited excerpt
               </span>
             )}
             {res.quote_verified === false && (
-              <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-amber-800">
+              <span className="text-amber-700">
                 ⚠ the model&apos;s quote was not found verbatim in the cited
                 excerpt
               </span>
             )}
           </div>
           {res.quote_verified === false && res.quote && (
-            <blockquote className="mt-3 border-l-2 border-amber-300 pl-3 text-sm italic text-zinc-500">
+            <blockquote
+              className={`${SERIF} mt-3 border-l-2 border-amber-300 pl-3 text-sm italic text-zinc-500 ${AFTER}`}
+            >
               claimed quote: “{res.quote}”
             </blockquote>
           )}
@@ -336,14 +402,17 @@ function Result({ res, onReset }: { res: QaResponse; onReset: () => void }) {
           <p
             className={`${SERIF} text-2xl font-light leading-snug text-zinc-700 md:text-3xl`}
           >
-            The corpus does not support an answer to this question.
+            {typedText}
+            {!typedDone && <Caret />}
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-zinc-600">
-              abstained — by design
-            </span>
-          </div>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-500">
+          <p
+            className={`mt-4 text-xs uppercase tracking-widest text-zinc-400 ${AFTER}`}
+          >
+            abstained — by design
+          </p>
+          <p
+            className={`mt-3 max-w-2xl text-sm leading-relaxed text-zinc-500 ${AFTER}`}
+          >
             The model reviewed the five retrieved passages below and returned
             the registered abstention rather than inventing an answer. In
             measurement, this configuration declined all 60 of 60 unanswerable
@@ -387,7 +456,7 @@ function Result({ res, onReset }: { res: QaResponse; onReset: () => void }) {
 
       {/* The gate's decision, when the gated arm ran. */}
       {res.gate && (
-        <p className="mt-4 text-xs text-zinc-400">
+        <p className={`mt-4 text-xs text-zinc-400 ${AFTER}`}>
           {res.gate.fired ? (
             <>
               gate fired: s1 {res.gate.s1.toFixed(2)} ≤ τ{" "}
@@ -406,30 +475,39 @@ function Result({ res, onReset }: { res: QaResponse; onReset: () => void }) {
 
       {/* Provenance: the five passages, rank order, cited one marked. */}
       {res.excerpts.length > 0 && (
-        <div className="mt-8">
-          <p className="mb-3 text-xs uppercase tracking-widest text-zinc-400">
+        <div className={`mt-8 ${AFTER}`}>
+          <button
+            type="button"
+            onClick={() => setShowExcerpts((v) => !v)}
+            className="mb-3 text-xs uppercase tracking-widest text-zinc-400 transition-colors hover:text-zinc-600"
+          >
             {res.state === "abstained"
               ? "what it declined over"
               : "what the model saw"}{" "}
-            · top {res.excerpts.length} · {res.arm} arm
-          </p>
-          <div className="flex flex-col gap-3">
-            {res.excerpts.map((ex) => (
-              <Excerpt
-                key={ex.n}
-                excerpt={ex}
-                cited={cited === ex.n}
-                highlight={cited === ex.n ? res.highlight : null}
-                ref={(el) => {
-                  excerptRefs.current[ex.n - 1] = el;
-                }}
-              />
-            ))}
-          </div>
+            · top {res.excerpts.length} · {res.arm} arm{" "}
+            {showExcerpts ? "▾" : "▸"}
+          </button>
+          {showExcerpts && (
+            <div className="flex flex-col gap-3">
+              {res.excerpts.map((ex) => (
+                <Excerpt
+                  key={ex.n}
+                  excerpt={ex}
+                  cited={cited === ex.n}
+                  highlight={cited === ex.n ? res.highlight : null}
+                  ref={(el) => {
+                    excerptRefs.current[ex.n - 1] = el;
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="mt-8 flex items-center justify-between text-[11px] text-zinc-400">
+      <div
+        className={`mt-8 flex items-center justify-between text-[11px] text-zinc-400 ${AFTER}`}
+      >
         <span>
           instrument {res.instrument_sha256.slice(0, 8)} · {res.model} · temp 0
           {res.usage?.prompt_tokens != null &&
@@ -482,26 +560,22 @@ function Excerpt({
   return (
     <div
       ref={ref}
-      className={`rounded-2xl border p-4 transition-colors ${
+      className={`rounded-2xl border p-5 transition-colors ${
         cited
-          ? "border-blue-300 bg-blue-50/40 ring-1 ring-blue-200"
-          : "border-zinc-200 bg-white/70"
+          ? "border-zinc-300 bg-white/85 shadow-sm"
+          : "border-zinc-200/70 bg-white/55"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-xs font-medium text-zinc-600">
-          [{excerpt.n}] {excerpt.ticker} 10-K · fiscal period ending{" "}
-          {excerpt.period} · Item {excerpt.item || "—"}
-          {cited && (
-            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] text-blue-800">
-              cited
-            </span>
-          )}
+        <p className="text-[11px] uppercase tracking-widest text-zinc-400">
+          [{excerpt.n}] {excerpt.ticker} 10-K · FY end {excerpt.period} ·
+          Item {excerpt.item || "—"}
+          {cited && <span className="ml-3 text-blue-700">cited</span>}
         </p>
-        <p className="text-[10px] text-zinc-400">{excerpt.accession}</p>
+        <p className="text-[10px] text-zinc-400/80">{excerpt.accession}</p>
       </div>
       <div
-        className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-600 ${
+        className={`${SERIF} mt-3 whitespace-pre-wrap text-[15px] font-light leading-relaxed text-zinc-700 ${
           expanded ? "" : "line-clamp-6"
         }`}
       >

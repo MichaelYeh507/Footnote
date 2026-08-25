@@ -46,16 +46,20 @@ Opens on http://localhost:3000. `NEXT_PUBLIC_API_URL` is optional; it defaults t
 
 The home page asks a live question through `POST /api/qa`: retrieval runs fresh under any
 of the four arms at their pre-registered parameters, and the answer comes from the measured
-instrument — `services/qa.py` unchanged, with its sha256 in every response. Live answers
-are demonstrations, not measurements, and are written nowhere: no file, no table, no log
-line carries them.
+instrument — `services/qa.py` unchanged, with its sha256 in every response. The paragraph
+shown first is a presentation restatement from a second, unmeasured call: composed only
+from the already-verified answer, quote and citation metadata, guarded so it can carry no
+digit they did not, and dropped (never repaired) when the guard refuses — the instrument's
+own words stay in the response either way. Live answers are demonstrations, not
+measurements, and are written nowhere: no file, no table, no log line carries them.
 
 Beyond the base setup above, the endpoint needs two values in `backend/.env`:
 
 - `DATABASE_URL` — the arms are SQL over the chunk store's tsvector and pgvector indexes,
   which PostgREST cannot express. Unset, the endpoint answers 503 naming the variable; the
   rest of the app runs without it.
-- `OPENAI_API_KEY` — embeds the question (every arm but sparse) and makes the model call.
+- `OPENAI_API_KEY` — embeds the question (every arm but sparse) and makes the model calls:
+  the instrument's, and the guarded presentation restatement of its verified output.
 
 The gated arm has two extra conditions, both refusals rather than fallbacks:
 

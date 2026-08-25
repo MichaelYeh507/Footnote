@@ -174,3 +174,37 @@ def test_qa_missing_body_fields_are_422(app_client):
     assert app_client.post("/api/qa", json={}).status_code == 422
     assert app_client.post(
         "/api/qa", json={"question": "q"}).status_code == 422
+
+
+def test_qa_attaches_presentation_outside_the_orchestration(app_client,
+                                                            live_mocked,
+                                                            monkeypatch):
+    monkeypatch.setattr(
+        qa_demo, "answer_question",
+        lambda *a, **kw: {"state": "answered", "answer": "x", "arm": "dense"})
+    seen = {}
+
+    def fake_compose(record):
+        seen["record"] = record
+        return "Prose over the verified answer [1]."
+
+    monkeypatch.setattr(qa_demo, "compose_paragraph", fake_compose)
+    response = app_client.post(
+        "/api/qa", json={"question": "q", "arm": "dense"})
+    assert response.status_code == 200
+    assert response.json()["presentation"] == (
+        "Prose over the verified answer [1].")
+    assert seen["record"]["answer"] == "x"  # composed from the full record
+
+
+def test_qa_declined_presentation_is_null_not_an_error(app_client,
+                                                       live_mocked,
+                                                       monkeypatch):
+    monkeypatch.setattr(
+        qa_demo, "answer_question",
+        lambda *a, **kw: {"state": "answered", "answer": "x", "arm": "dense"})
+    monkeypatch.setattr(qa_demo, "compose_paragraph", lambda record: None)
+    response = app_client.post(
+        "/api/qa", json={"question": "q", "arm": "dense"})
+    assert response.status_code == 200
+    assert response.json()["presentation"] is None
