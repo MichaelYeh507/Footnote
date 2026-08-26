@@ -23,8 +23,9 @@ const serif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Document Pipeline",
-  description: "Investment research PDF pipeline",
+  title: "Footnote",
+  description:
+    "Grounded question answering over SEC 10-K filings — every answer cites a verbatim-verified quote",
 };
 
 export default function RootLayout({
