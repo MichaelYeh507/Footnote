@@ -4,12 +4,8 @@
 passage, every quote is checked verbatim against the filing it came from, and
 every published number carries the denominator it was computed from.*
 
-<!-- HERO SLOT 1 — the demo video.
-     Best option: edit this README in the GitHub web editor and drag
-     ask-the-filings-demo.mp4 (from the local demo captures) into this spot;
-     GitHub hosts it and renders an inline player.
-     Fallback: commit the demo GIF as docs/demo.gif and keep the <img>
-     block below. -->
+<!-- Upgrade path: dragging the demo MP4 into this spot in GitHub's web
+     editor replaces the GIF with a smoother inline player. -->
 
 <p align="center">
   <img src="docs/demo.gif" width="800" alt="A question typed into the Footnote surface, the answer streaming in with a citation, and the verbatim quote highlighted in the cited excerpt; then a question the corpus cannot answer, declined">
