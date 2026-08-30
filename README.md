@@ -42,11 +42,16 @@ measurement harness and the answering surface are what this project is.
 
 ## Why I built this
 
-<!-- MICHAEL — YOUR WORDS ONLY in this section. The Edgeball version works
-     because it names your own history with the sport; this one should name
-     whatever is true for you here: why SEC filings, why measurement-first,
-     what you wanted to be able to say at the end that most RAG demos can't.
-     2–4 short paragraphs. Delete this comment when written. -->
+After accepting an offer at an investment firm, I wanted to walk in already
+knowing what it takes to build a financial data product end to end — fetching
+the filings, structuring them, retrieving from them, answering questions over
+them. SEC 10-Ks are the raw material of the industry I was joining, so that's
+where I started.
+
+And in finance, a confidently cited wrong number is worse than no answer.
+Most RAG demos stop at "it seems to answer"; I wanted to be able to say, with
+denominators and intervals, how often each piece actually works — including
+where it fails.
 
 ---
 
